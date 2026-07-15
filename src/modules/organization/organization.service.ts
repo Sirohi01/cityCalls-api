@@ -1,0 +1,85 @@
+import { BranchModel, SubBranchModel, TeamModel } from './organization.model';
+import { NotFoundError } from '../../lib/errors';
+import { buildPaginationMeta } from '../../lib/apiResponse';
+
+interface ListParams {
+  page: number;
+  limit: number;
+  active?: boolean;
+  q?: string;
+}
+
+export async function listBranches(params: ListParams) {
+  const filter: Record<string, unknown> = {};
+  if (params.active !== undefined) filter.active = params.active;
+  if (params.q) filter.name = { $regex: params.q, $options: 'i' };
+
+  const skip = (params.page - 1) * params.limit;
+  const [items, total] = await Promise.all([
+    BranchModel.find(filter).skip(skip).limit(params.limit).sort({ createdAt: -1 }),
+    BranchModel.countDocuments(filter),
+  ]);
+  return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
+}
+
+export async function getBranch(id: string) {
+  const branch = await BranchModel.findById(id);
+  if (!branch) throw new NotFoundError('Branch not found');
+  return branch;
+}
+
+export async function createBranch(data: Record<string, unknown>) {
+  return BranchModel.create(data);
+}
+
+export async function updateBranch(id: string, data: Record<string, unknown>) {
+  const branch = await BranchModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  if (!branch) throw new NotFoundError('Branch not found');
+  return branch;
+}
+
+export async function listSubBranches(branchId: string | undefined, params: ListParams) {
+  const filter: Record<string, unknown> = {};
+  if (branchId) filter.branchId = branchId;
+  if (params.active !== undefined) filter.active = params.active;
+
+  const skip = (params.page - 1) * params.limit;
+  const [items, total] = await Promise.all([
+    SubBranchModel.find(filter).skip(skip).limit(params.limit).sort({ createdAt: -1 }),
+    SubBranchModel.countDocuments(filter),
+  ]);
+  return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
+}
+
+export async function createSubBranch(data: Record<string, unknown>) {
+  return SubBranchModel.create(data);
+}
+
+export async function updateSubBranch(id: string, data: Record<string, unknown>) {
+  const subBranch = await SubBranchModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  if (!subBranch) throw new NotFoundError('Sub-branch not found');
+  return subBranch;
+}
+
+export async function listTeams(branchId: string | undefined, params: ListParams) {
+  const filter: Record<string, unknown> = {};
+  if (branchId) filter.branchId = branchId;
+  if (params.active !== undefined) filter.active = params.active;
+
+  const skip = (params.page - 1) * params.limit;
+  const [items, total] = await Promise.all([
+    TeamModel.find(filter).skip(skip).limit(params.limit).sort({ createdAt: -1 }),
+    TeamModel.countDocuments(filter),
+  ]);
+  return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
+}
+
+export async function createTeam(data: Record<string, unknown>) {
+  return TeamModel.create(data);
+}
+
+export async function updateTeam(id: string, data: Record<string, unknown>) {
+  const team = await TeamModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  if (!team) throw new NotFoundError('Team not found');
+  return team;
+}
