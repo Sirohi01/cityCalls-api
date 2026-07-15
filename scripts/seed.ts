@@ -2,6 +2,7 @@ import { connectDb, disconnectDb } from '../src/lib/db';
 import { UserModel } from '../src/modules/users/users.model';
 import { hashPassword } from '../src/modules/auth/auth.service';
 import { RolePermissionModel } from '../src/modules/config/rolePermissions.model';
+import { StatusTransitionModel, EntityType } from '../src/modules/config/statusTransition.model';
 import { Role, DataScope } from '../src/modules/users/users.types';
 
 // Role-permission seed covering every module built through Phase 1/2, following the
@@ -26,7 +27,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -37,8 +38,8 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial'], 'ALL'),
 
   // Branch Manager: manages their own branch's org structure, employees, vendors
-  // (view only), customers, and can view (not edit) masters/catalog.
-  ...allFor('BRANCH_MANAGER', ['organization', 'employees', 'customers'], CRUD, 'BRANCH'),
+  // (view only), customers, calls, and leads; can view (not edit) masters/catalog.
+  ...allFor('BRANCH_MANAGER', ['organization', 'employees', 'customers', 'calls', 'leads'], CRUD, 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
@@ -52,15 +53,17 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('EMPLOYEE', ['customers'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['catalog'], ['view'], 'ALL'),
 
-  // Call Executive: creates/edits customers within their branch, needs to see the
-  // service catalog to log calls/bookings.
-  ...allFor('CALL_EXECUTIVE', ['customers'], ['view', 'create', 'edit'], 'BRANCH'),
+  // Call Executive: creates/edits customers and calls within their branch, needs
+  // to see the service catalog to log calls/bookings.
+  ...allFor('CALL_EXECUTIVE', ['customers', 'calls'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CALL_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('HAPPY_CALL_EXECUTIVE', ['calls'], ['view', 'create', 'edit'], 'BRANCH'),
+  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers'], ['view', 'create', 'edit'], 'BRANCH'),
 
-  // Sales Executive: owns their own leads' customers (Phase 3 will add the leads
-  // module itself; the customer-level access is ready ahead of that).
-  ...allFor('SALES_EXECUTIVE', ['customers'], ['view', 'create', 'edit'], 'OWN'),
+  // Sales Executive: owns their own leads and those leads' customers.
+  ...allFor('SALES_EXECUTIVE', ['customers', 'leads'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('SALES_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('MARKETING_EXECUTIVE', ['leads'], ['view', 'create'], 'ALL'),
 
   // Finance Executive / Accountant: financial visibility on customers and vendors,
   // branch-scoped, plus read access to catalog pricing.
@@ -89,6 +92,50 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
 ];
 
+// Lead stage transitions per docs/07-status-transition-matrix.md §3. "Owner" in
+// that table means the specific user who owns the lead record, not a role — the
+// roles listed here are every role that can plausibly own or manage a lead;
+// per-record ownership is enforced separately in leads.service.ts changeStage().
+// "any -> DUPLICATE" is intentionally NOT seeded here — see the comment on
+// mergeLeads() in leads.service.ts for why that transition bypasses this engine.
+const LEAD_OWNER_ROLES: Role[] = ['SALES_EXECUTIVE', 'CALL_EXECUTIVE', 'MARKETING_EXECUTIVE', 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+const LEAD_MANAGER_ROLES: Role[] = ['BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+
+interface TransitionRow {
+  entityType: EntityType;
+  fromStatus: string;
+  toStatus: string;
+  allowedRoles: Role[];
+}
+
+const STATUS_TRANSITIONS: TransitionRow[] = [
+  { entityType: 'LEAD', fromStatus: 'NEW', toStatus: 'CONTACT_ATTEMPTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'CONTACT_ATTEMPTED', toStatus: 'CONNECTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'CONTACT_ATTEMPTED', toStatus: 'NOT_INTERESTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'CONTACT_ATTEMPTED', toStatus: 'INVALID', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'CONNECTED', toStatus: 'REQUIREMENT_COLLECTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'REQUIREMENT_COLLECTED', toStatus: 'QUALIFIED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'REQUIREMENT_COLLECTED', toStatus: 'LOST', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'QUALIFIED', toStatus: 'ESTIMATE_REQUIRED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'QUALIFIED', toStatus: 'CONVERTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'ESTIMATE_REQUIRED', toStatus: 'ESTIMATE_SHARED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'ESTIMATE_SHARED', toStatus: 'NEGOTIATION', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'ESTIMATE_SHARED', toStatus: 'CONVERTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'ESTIMATE_SHARED', toStatus: 'LOST', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'NEGOTIATION', toStatus: 'CONVERTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'NEGOTIATION', toStatus: 'LOST', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'NEGOTIATION', toStatus: 'FOLLOW_UP', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'FOLLOW_UP', toStatus: 'CONTACT_ATTEMPTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'FOLLOW_UP', toStatus: 'CONNECTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'FOLLOW_UP', toStatus: 'REQUIREMENT_COLLECTED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'FOLLOW_UP', toStatus: 'QUALIFIED', allowedRoles: LEAD_OWNER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'FOLLOW_UP', toStatus: 'NEGOTIATION', allowedRoles: LEAD_OWNER_ROLES },
+  // Manual reopen of a terminal-lost lead back into active follow-up — manager-only.
+  { entityType: 'LEAD', fromStatus: 'LOST', toStatus: 'FOLLOW_UP', allowedRoles: LEAD_MANAGER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'NOT_INTERESTED', toStatus: 'FOLLOW_UP', allowedRoles: LEAD_MANAGER_ROLES },
+  { entityType: 'LEAD', fromStatus: 'INVALID', toStatus: 'FOLLOW_UP', allowedRoles: LEAD_MANAGER_ROLES },
+];
+
 async function seed(): Promise<void> {
   await connectDb();
 
@@ -97,6 +144,15 @@ async function seed(): Promise<void> {
     await RolePermissionModel.findOneAndUpdate(
       { role: perm.role, module: perm.module, action: perm.action },
       { dataScope: perm.dataScope },
+      { upsert: true }
+    );
+  }
+
+  console.log(`[seed] upserting ${STATUS_TRANSITIONS.length} status-transition entries...`);
+  for (const t of STATUS_TRANSITIONS) {
+    await StatusTransitionModel.findOneAndUpdate(
+      { entityType: t.entityType, fromStatus: t.fromStatus, toStatus: t.toStatus },
+      { allowedRoles: t.allowedRoles },
       { upsert: true }
     );
   }

@@ -13,6 +13,8 @@ import employeesRoutes from './modules/employees/employees.routes';
 import vendorsRoutes from './modules/vendors/vendors.routes';
 import customersRoutes from './modules/customers/customers.routes';
 import catalogRoutes from './modules/catalog/catalog.routes';
+import callsRoutes from './modules/calls/calls.routes';
+import leadsRoutes from './modules/leads/leads.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -41,6 +43,8 @@ export function createApp(): Application {
   app.use('/api/v1', vendorsRoutes);
   app.use('/api/v1', customersRoutes);
   app.use('/api/v1', catalogRoutes);
+  app.use('/api/v1', callsRoutes);
+  app.use('/api/v1', leadsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

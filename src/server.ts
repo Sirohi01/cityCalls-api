@@ -2,12 +2,14 @@ import http from 'http';
 import { createApp } from './app';
 import { connectDb } from './lib/db';
 import { loadPermissionCache } from './lib/permissionCache';
+import { loadStatusEngineCache } from './lib/statusEngine';
 import { initRealtime } from './realtime';
 import { env } from './config/env';
 
 async function main(): Promise<void> {
   await connectDb();
   await loadPermissionCache();
+  await loadStatusEngineCache();
 
   const app = createApp();
   const httpServer = http.createServer(app);
