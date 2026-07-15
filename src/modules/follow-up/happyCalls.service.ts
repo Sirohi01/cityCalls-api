@@ -4,7 +4,8 @@ import { updateStatus } from '../service-requests/serviceRequests.service';
 import { NotFoundError, ConflictError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { logActivity } from '../../lib/auditLog';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
+import { UserModel } from '../users/users.model';
 import { AccessTokenPayload } from '../../lib/jwt';
 
 const MAX_UNREACHABLE_RETRIES = 2; // docs/06-complete-workflow-document.md Stage 10: "2 retries over 5 days before giving up"
@@ -99,11 +100,16 @@ export async function recordOutcome(id: string, input: OutcomeInput, actor: Acce
       sr.isEscalated = true;
       sr.escalationReason = `Happy call flagged dissatisfaction: ${input.remarks ?? ''}`;
       await sr.save();
-      sendPlaceholderNotification({
-        to: sr.branchId?.toString() ?? 'unassigned',
-        purpose: 'HAPPY_CALL_ESCALATION',
-        payload: { serviceRequestId: sr._id.toString(), remarks: input.remarks },
-      });
+
+      const branchManagers = sr.branchId
+        ? await UserModel.find({ branchId: sr.branchId, role: { $in: ['BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'] } })
+        : await UserModel.find({ role: { $in: ['ADMIN', 'SUPER_ADMIN'] } });
+      for (const manager of branchManagers) {
+        await trigger('HAPPY_CALL_ESCALATION', {
+          recipient: { userId: manager._id.toString() },
+          variables: { serviceRequestId: sr._id.toString(), remarks: input.remarks ?? '' },
+        });
+      }
     }
   }
 

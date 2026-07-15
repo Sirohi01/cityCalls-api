@@ -23,6 +23,7 @@ export const createCustomerSchema = z.object({
   name: z.string().min(2),
   businessName: z.string().optional(),
   gstin: z.string().optional(),
+  email: z.string().email().optional(),
   contacts: z.array(contactSchema).min(1, 'At least one contact is required'),
   addresses: z.array(addressSchema).default([]),
   tags: z.array(z.string()).default([]),

@@ -7,7 +7,7 @@ import { buildPaginationMeta } from '../../lib/apiResponse';
 import { getNextNumber, currentFinancialYear } from '../../lib/numbering';
 import { assertValidTransition } from '../../lib/statusEngine';
 import { generateDocumentPdf } from '../../lib/pdfGenerator';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 
@@ -124,10 +124,9 @@ export async function shareInvoice(id: string, channels: string[]) {
   invoice.sentVia = channels;
   await invoice.save();
 
-  sendPlaceholderNotification({
-    to: invoice.customerId.toString(),
-    purpose: 'INVOICE_GENERATED',
-    payload: { invoiceId: id, number: invoice.number, total: invoice.total },
+  await trigger('INVOICE_GENERATED', {
+    recipient: { customerId: invoice.customerId.toString() },
+    variables: { invoiceId: id, number: invoice.number, total: invoice.total },
   });
 
   return invoice;

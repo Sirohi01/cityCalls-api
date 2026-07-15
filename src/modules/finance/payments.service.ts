@@ -3,7 +3,7 @@ import { InvoiceModel } from './invoices.model';
 import { NotFoundError, ConflictError } from '../../lib/errors';
 import { getNextNumber, currentFinancialYear } from '../../lib/numbering';
 import { generateDocumentPdf } from '../../lib/pdfGenerator';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { updateStatus as updateServiceRequestStatus } from '../service-requests/serviceRequests.service';
@@ -57,10 +57,9 @@ export async function recordPayment(invoiceId: string, input: RecordPaymentInput
     newValue: { receiptId: receipt._id, amount: input.amount, newStatus: invoice.status },
   });
 
-  sendPlaceholderNotification({
-    to: invoice.customerId.toString(),
-    purpose: 'PAYMENT_RECEIVED',
-    payload: { invoiceId, receiptNumber: number, amount: input.amount },
+  await trigger('PAYMENT_RECEIVED', {
+    recipient: { customerId: invoice.customerId.toString() },
+    variables: { invoiceId, receiptNumber: number, amount: input.amount },
   });
 
   // If the linked Service Request is waiting on payment, advance it — this is

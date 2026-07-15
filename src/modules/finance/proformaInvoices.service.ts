@@ -5,7 +5,7 @@ import { buildPaginationMeta } from '../../lib/apiResponse';
 import { getNextNumber, currentFinancialYear } from '../../lib/numbering';
 import { assertValidTransition } from '../../lib/statusEngine';
 import { generateDocumentPdf } from '../../lib/pdfGenerator';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 
@@ -76,10 +76,9 @@ export async function shareProformaInvoice(id: string, channels: string[], actor
   proforma.sentVia = channels;
   await proforma.save();
 
-  sendPlaceholderNotification({
-    to: proforma.customerId.toString(),
-    purpose: 'PROFORMA_INVOICE_SHARED',
-    payload: { proformaInvoiceId: id, number: proforma.number },
+  await trigger('PROFORMA_INVOICE_SHARED', {
+    recipient: { customerId: proforma.customerId.toString() },
+    variables: { proformaInvoiceId: id, number: proforma.number },
   });
 
   return proforma;

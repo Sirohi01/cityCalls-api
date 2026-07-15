@@ -3,7 +3,7 @@ import { scheduleHappyCall } from '../modules/follow-up/happyCalls.service';
 import { HappyCallModel } from '../modules/follow-up/happyCalls.model';
 import { ActivityLogModel } from '../modules/audit/activityLog.model';
 import { emitServiceRequestStatusChanged } from '../realtime';
-import { sendPlaceholderNotification } from '../lib/notificationStub';
+import { trigger } from '../lib/notifications';
 
 // docs/manish/12-background-jobs-and-notifications.md: "happyCallScheduler |
 // daily | Creates HappyCall tasks for eligible completed/paid requests."
@@ -59,7 +59,10 @@ export async function runHappyCallScheduler(): Promise<{ advancedToFollowUp: num
     await writeSystemStatusChange(sr._id.toString(), 'FOLLOW_UP_PENDING', 'HAPPY_CALL_PENDING', 'Happy call task created');
     happyCallsCreated += 1;
 
-    sendPlaceholderNotification({ to: assignedTo, purpose: 'HAPPY_CALL_DUE', payload: { serviceRequestId: sr._id.toString() } });
+    await trigger('HAPPY_CALL_DUE', {
+      recipient: { userId: assignedTo },
+      variables: { serviceRequestId: sr._id.toString() },
+    });
   }
 
   if (paidRequests.length > 0 || happyCallsCreated > 0) {

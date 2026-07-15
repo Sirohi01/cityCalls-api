@@ -11,7 +11,7 @@ import { assertValidTransition, getAllowedTransitions } from '../../lib/statusEn
 import { addBusinessMinutes } from '../../lib/businessCalendar';
 import { resolvePolicy } from '../../lib/policyResolver';
 import { logActivity } from '../../lib/auditLog';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 import { emitServiceRequestStatusChanged, emitServiceRequestAssigned, emitTechnicianLocationUpdated } from '../../realtime';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { CustomerModel, CustomerProductModel } from '../customers/customers.model';
@@ -99,10 +99,9 @@ export async function createServiceRequest(data: Record<string, unknown> & { add
     createdBy,
   });
 
-  sendPlaceholderNotification({
-    to: data.customerId as string,
-    purpose: 'SERVICE_REQUEST_CREATED',
-    payload: { serviceRequestId: sr._id.toString(), number },
+  await trigger('SERVICE_REQUEST_CREATED', {
+    recipient: { customerId: data.customerId as string },
+    variables: { serviceRequestId: sr._id.toString(), number },
   });
 
   return sr;
@@ -141,10 +140,9 @@ export async function updateStatus(id: string, toStatus: ServiceRequestStatus, a
   });
 
   emitServiceRequestStatusChanged(id, { serviceRequestId: id, fromStatus, toStatus });
-  sendPlaceholderNotification({
-    to: sr.customerId.toString(),
-    purpose: `SERVICE_REQUEST_${toStatus}`,
-    payload: { serviceRequestId: id, status: toStatus },
+  await trigger(`SERVICE_REQUEST_${toStatus}`, {
+    recipient: { customerId: sr.customerId.toString() },
+    variables: { serviceRequestId: id, status: toStatus },
   });
 
   return sr;
@@ -219,7 +217,22 @@ export async function assignServiceRequest(id: string, input: AssignInput, actor
   });
 
   emitServiceRequestAssigned(id, { serviceRequestId: id, assigneeType: input.assigneeType, assigneeId: input.assigneeId });
-  sendPlaceholderNotification({ to: input.assigneeId, purpose: 'SERVICE_REQUEST_ASSIGNED', payload: { serviceRequestId: id } });
+
+  // Only EMPLOYEE assignees resolve directly to a single notifiable User today
+  // (via Employee.userId) — BRANCH/SUB_BRANCH/TEAM/VENDOR/OUTSOURCED_PARTNER
+  // assignees are organizational units, not individual users, and resolving
+  // "who specifically to notify" for those (a branch's on-duty dispatcher? every
+  // team member?) is a real design question left open rather than guessed at
+  // here; those assignment types simply don't get a direct notification yet.
+  if (input.assigneeType === 'EMPLOYEE') {
+    const employee = await EmployeeModel.findById(input.assigneeId);
+    if (employee) {
+      await trigger('SERVICE_REQUEST_ASSIGNED', {
+        recipient: { userId: employee.userId.toString() },
+        variables: { serviceRequestId: id },
+      });
+    }
+  }
 
   return sr;
 }
@@ -345,12 +358,15 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     newValue: { newServiceRequestId: newSr._id, withinPolicyWindow: withinWindow, windowDays, reopenCount, warrantyApplied },
   });
 
-  if (original.assigneeId) {
-    sendPlaceholderNotification({
-      to: original.assigneeId.toString(),
-      purpose: 'COMPLAINT_REOPENED',
-      payload: { originalServiceRequestId: id, newServiceRequestId: newSr._id.toString() },
-    });
+  // Same EMPLOYEE-only resolution caveat as assignServiceRequest() above.
+  if (original.assigneeType === 'EMPLOYEE' && original.assigneeId) {
+    const employee = await EmployeeModel.findById(original.assigneeId);
+    if (employee) {
+      await trigger('COMPLAINT_REOPENED', {
+        recipient: { userId: employee.userId.toString() },
+        variables: { originalServiceRequestId: id, newServiceRequestId: newSr._id.toString() },
+      });
+    }
   }
 
   // Recurring-issue signal: flag for management attention rather than block
@@ -403,7 +419,7 @@ export async function requestCompletionOtp(serviceRequestId: string): Promise<vo
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
 
-  sendPlaceholderNotification({ to: mobile, purpose: 'SERVICE_COMPLETION_OTP', payload: { serviceRequestId, otp } });
+  await trigger('SERVICE_COMPLETION_OTP', { recipient: { mobile }, variables: { serviceRequestId, otp } });
 }
 
 export async function verifyCompletionOtp(serviceRequestId: string, otp: string): Promise<{ verified: true }> {

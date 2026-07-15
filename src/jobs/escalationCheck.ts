@@ -1,5 +1,6 @@
 import { ServiceRequestModel } from '../modules/service-requests/serviceRequests.model';
-import { sendPlaceholderNotification } from '../lib/notificationStub';
+import { UserModel } from '../modules/users/users.model';
+import { trigger } from '../lib/notifications';
 
 // SLA-breach escalation check — docs/manish/06-workflow-engine-plan.md §4.
 // Runs as a lightweight in-process periodic function rather than a full
@@ -25,11 +26,17 @@ export async function runEscalationCheck(): Promise<{ breached: number }> {
     sr.sla.breachedAt = now;
     await sr.save();
 
-    sendPlaceholderNotification({
-      to: sr.branchId?.toString() ?? 'unassigned',
-      purpose: 'SLA_BREACHED',
-      payload: { serviceRequestId: sr._id.toString(), number: sr.number, dueAt: sr.sla.dueAt },
-    });
+    // Recipients per docs/07-status-transition-matrix.md §4: Branch Manager, then Admin.
+    const recipients = sr.branchId
+      ? await UserModel.find({ branchId: sr.branchId, role: { $in: ['BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'] } })
+      : await UserModel.find({ role: { $in: ['ADMIN', 'SUPER_ADMIN'] } });
+
+    for (const recipient of recipients) {
+      await trigger('SLA_BREACHED', {
+        recipient: { userId: recipient._id.toString() },
+        variables: { serviceRequestId: sr._id.toString(), number: sr.number, dueAt: sr.sla.dueAt?.toISOString() ?? '' },
+      });
+    }
   }
 
   if (overdue.length > 0) {

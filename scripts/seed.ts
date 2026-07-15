@@ -3,6 +3,7 @@ import { UserModel } from '../src/modules/users/users.model';
 import { hashPassword } from '../src/modules/auth/auth.service';
 import { RolePermissionModel } from '../src/modules/config/rolePermissions.model';
 import { StatusTransitionModel, EntityType } from '../src/modules/config/statusTransition.model';
+import { NotificationTemplateModel, NotificationChannel } from '../src/modules/notifications/notificationTemplates.model';
 import { Role, DataScope } from '../src/modules/users/users.types';
 
 // Role-permission seed covering every module built through Phase 1/2, following the
@@ -27,7 +28,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -47,6 +48,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['files'], ['view', 'create'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['finance'], ['view', 'create', 'edit', 'viewFinancial'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['marketing'], ['view'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
@@ -87,6 +89,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('SALES_EXECUTIVE', ['customers', 'leads'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('SALES_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('MARKETING_EXECUTIVE', ['leads'], ['view', 'create'], 'ALL'),
+  ...allFor('MARKETING_EXECUTIVE', ['marketing'], ['view', 'create', 'edit'], 'ALL'),
 
   // Finance Executive / Accountant: financial visibility on customers, vendors,
   // and service requests, branch-scoped, plus read access to catalog pricing.
@@ -307,6 +310,63 @@ const FINANCE_TRANSITIONS: TransitionRow[] = [
   { entityType: 'INVOICE', fromStatus: 'ISSUED', toStatus: 'CANCELLED', allowedRoles: INVOICE_CANCEL_ROLES },
 ];
 
+// Notification template seed — docs/13-notification-and-template-system.md §2's
+// trigger catalog, covering the triggerKeys actually fired in code today (see
+// lib/notifications.ts callers). Not every one of docs' ~20 documented triggers
+// has a seeded template yet (e.g. the dynamic `SERVICE_REQUEST_${toStatus}` key
+// covers 37 possible statuses — only the highest-value few are seeded here);
+// trigger() itself no-ops safely when no template is registered, so this list
+// grows incrementally as each trigger's actual wording is decided by the
+// business, not as a blocking prerequisite for the engine to function.
+interface TemplateRow {
+  triggerKey: string;
+  channel: NotificationChannel;
+  subjectTemplate?: string;
+  bodyTemplate: string;
+  variables: string[];
+}
+
+const NOTIFICATION_TEMPLATES: TemplateRow[] = [
+  { triggerKey: 'SERVICE_REQUEST_CREATED', channel: 'IN_APP', bodyTemplate: 'Your service request {{number}} has been received.', variables: ['number', 'serviceRequestId'] },
+  { triggerKey: 'SERVICE_REQUEST_CREATED', channel: 'WHATSAPP', bodyTemplate: 'Hi! Your CityCalls service request {{number}} has been received. We will update you shortly.', variables: ['number'] },
+  { triggerKey: 'SERVICE_REQUEST_CREATED', channel: 'EMAIL', subjectTemplate: 'Service Request {{number}} Received', bodyTemplate: '<p>Your service request <strong>{{number}}</strong> has been received and is being reviewed.</p>', variables: ['number'] },
+
+  { triggerKey: 'SERVICE_REQUEST_ASSIGNED', channel: 'IN_APP', bodyTemplate: 'Service request {{serviceRequestId}} has been assigned to you.', variables: ['serviceRequestId'] },
+
+  { triggerKey: 'SERVICE_REQUEST_TECHNICIAN_EN_ROUTE', channel: 'IN_APP', bodyTemplate: 'Your technician is on the way.', variables: [] },
+  { triggerKey: 'SERVICE_REQUEST_TECHNICIAN_EN_ROUTE', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls technician is on the way for {{status}}.', variables: ['status'] },
+
+  { triggerKey: 'SERVICE_REQUEST_SERVICE_COMPLETED', channel: 'IN_APP', bodyTemplate: 'Your service has been marked complete. Please confirm.', variables: [] },
+
+  { triggerKey: 'SERVICE_REQUEST_CLOSED', channel: 'IN_APP', bodyTemplate: 'Your service request has been closed. Thank you!', variables: [] },
+
+  { triggerKey: 'ESTIMATE_SHARED', channel: 'IN_APP', bodyTemplate: 'An estimate for {{total}} has been shared with you. Please review and approve.', variables: ['estimateId', 'number', 'total'] },
+  { triggerKey: 'ESTIMATE_SHARED', channel: 'EMAIL', subjectTemplate: 'Estimate {{number}} for Your Approval', bodyTemplate: '<p>An estimate of <strong>₹{{total}}</strong> has been shared for your service request. Please review and approve.</p>', variables: ['number', 'total'] },
+  { triggerKey: 'ESTIMATE_SHARED', channel: 'WHATSAPP', bodyTemplate: 'An estimate of Rs.{{total}} has been shared for your CityCalls request. Please check the app to approve.', variables: ['total'] },
+
+  { triggerKey: 'PROFORMA_INVOICE_SHARED', channel: 'IN_APP', bodyTemplate: 'A proforma invoice {{number}} has been shared with you.', variables: ['proformaInvoiceId', 'number'] },
+
+  { triggerKey: 'INVOICE_GENERATED', channel: 'IN_APP', bodyTemplate: 'Invoice {{number}} for ₹{{total}} has been generated.', variables: ['invoiceId', 'number', 'total'] },
+  { triggerKey: 'INVOICE_GENERATED', channel: 'EMAIL', subjectTemplate: 'Invoice {{number}}', bodyTemplate: '<p>Your invoice <strong>{{number}}</strong> for ₹{{total}} is attached.</p>', variables: ['number', 'total'] },
+
+  { triggerKey: 'PAYMENT_RECEIVED', channel: 'IN_APP', bodyTemplate: 'Payment of ₹{{amount}} received for receipt {{receiptNumber}}.', variables: ['invoiceId', 'receiptNumber', 'amount'] },
+  { triggerKey: 'PAYMENT_RECEIVED', channel: 'WHATSAPP', bodyTemplate: 'We have received your payment of Rs.{{amount}}. Thank you!', variables: ['amount'] },
+
+  { triggerKey: 'COMPLAINT_REOPENED', channel: 'IN_APP', bodyTemplate: 'A service request you handled has been reopened by the customer.', variables: ['originalServiceRequestId', 'newServiceRequestId'] },
+
+  { triggerKey: 'HAPPY_CALL_DUE', channel: 'IN_APP', bodyTemplate: 'A happy call is due for service request {{serviceRequestId}}.', variables: ['serviceRequestId'] },
+
+  { triggerKey: 'HAPPY_CALL_ESCALATION', channel: 'IN_APP', bodyTemplate: 'Customer dissatisfaction flagged on happy call for {{serviceRequestId}}.', variables: ['serviceRequestId', 'remarks'] },
+
+  { triggerKey: 'SLA_BREACHED', channel: 'IN_APP', bodyTemplate: 'SLA breached for service request {{number}}.', variables: ['serviceRequestId', 'number', 'dueAt'] },
+
+  { triggerKey: 'PASSWORD_RESET', channel: 'EMAIL', subjectTemplate: 'Reset Your CityCalls Password', bodyTemplate: '<p>Use this link to reset your password: {{token}}</p>', variables: ['token', 'userId'] },
+
+  { triggerKey: 'OTP_LOGIN', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls OTP is {{otp}}. Valid for 5 minutes.', variables: ['otp'] },
+
+  { triggerKey: 'SERVICE_COMPLETION_OTP', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls service completion OTP is {{otp}}. Share this with your technician to confirm completion.', variables: ['otp', 'serviceRequestId'] },
+];
+
 async function seed(): Promise<void> {
   await connectDb();
 
@@ -325,6 +385,15 @@ async function seed(): Promise<void> {
     await StatusTransitionModel.findOneAndUpdate(
       { entityType: t.entityType, fromStatus: t.fromStatus, toStatus: t.toStatus },
       { allowedRoles: t.allowedRoles },
+      { upsert: true }
+    );
+  }
+
+  console.log(`[seed] upserting ${NOTIFICATION_TEMPLATES.length} notification template entries...`);
+  for (const t of NOTIFICATION_TEMPLATES) {
+    await NotificationTemplateModel.findOneAndUpdate(
+      { triggerKey: t.triggerKey, channel: t.channel },
+      { subjectTemplate: t.subjectTemplate, bodyTemplate: t.bodyTemplate, variables: t.variables },
       { upsert: true }
     );
   }

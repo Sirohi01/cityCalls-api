@@ -7,7 +7,7 @@ import { PasswordResetModel } from './passwordReset.model';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
 import { UnauthorizedError, NotFoundError, AppError } from '../../lib/errors';
 import { env } from '../../config/env';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 
 interface SessionMeta {
   device?: string;
@@ -151,7 +151,7 @@ export async function requestOtp(mobile: string): Promise<void> {
     expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes, per docs/17 §4
   });
 
-  sendPlaceholderNotification({ to: mobile, purpose: 'OTP_LOGIN', payload: { otp } });
+  await trigger('OTP_LOGIN', { recipient: { mobile }, variables: { otp } });
 }
 
 export async function verifyOtp(mobile: string, otp: string, meta: SessionMeta): Promise<AuthResult> {
@@ -210,10 +210,9 @@ export async function requestPasswordReset(identifier: string): Promise<void> {
     expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
   });
 
-  sendPlaceholderNotification({
-    to: user.email ?? user.mobile,
-    purpose: 'PASSWORD_RESET',
-    payload: { token, userId: user._id.toString() },
+  await trigger('PASSWORD_RESET', {
+    recipient: { userId: user._id.toString(), email: user.email, mobile: user.mobile },
+    variables: { token, userId: user._id.toString() },
   });
 }
 

@@ -29,6 +29,7 @@ export interface ICustomer extends Document {
   name: string;
   businessName?: string;
   gstin?: string;
+  email?: string; // needed for email notifications/marketing — Customer.userId (if linked) has its own email, but not every customer has a User account
   contacts: IContact[];
   addresses: Types.DocumentArray<IAddress>;
   tags: string[];
@@ -52,6 +53,7 @@ const customerSchema = new Schema<ICustomer>(
     name: { type: String, required: true, trim: true },
     businessName: { type: String, trim: true },
     gstin: { type: String, trim: true },
+    email: { type: String, trim: true, lowercase: true },
     contacts: [
       {
         name: String,

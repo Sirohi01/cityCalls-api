@@ -7,7 +7,7 @@ import { getNextNumber, currentFinancialYear } from '../../lib/numbering';
 import { computeDocumentTotals } from '../../lib/financialTotals';
 import { assertValidTransition } from '../../lib/statusEngine';
 import { generateDocumentPdf } from '../../lib/pdfGenerator';
-import { sendPlaceholderNotification } from '../../lib/notificationStub';
+import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 
@@ -104,10 +104,9 @@ export async function shareEstimate(id: string, channels: string[], actor: Acces
   estimate.sentVia = channels;
   await estimate.save();
 
-  sendPlaceholderNotification({
-    to: estimate.customerId.toString(),
-    purpose: 'ESTIMATE_SHARED',
-    payload: { estimateId: id, number: estimate.number, total: estimate.total },
+  await trigger('ESTIMATE_SHARED', {
+    recipient: { customerId: estimate.customerId.toString() },
+    variables: { estimateId: id, number: estimate.number, total: estimate.total },
   });
 
   return estimate;
