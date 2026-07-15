@@ -34,8 +34,12 @@ export async function findDuplicatesHandler(req: ScopedRequest, res: Response, n
 
 export async function createCustomerHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const customer = await customerService.createCustomer(req.body);
-    sendSuccess(res, customer, 'Customer created successfully', null, 201);
+    const result = await customerService.createCustomer(req.body);
+    const message =
+      result.potentialDuplicates.length > 0
+        ? 'Customer created successfully — review potential duplicates'
+        : 'Customer created successfully';
+    sendSuccess(res, result, message, null, 201);
   } catch (err) {
     next(err);
   }
@@ -54,6 +58,37 @@ export async function addAddressHandler(req: ScopedRequest, res: Response, next:
   try {
     const customer = await customerService.addAddress(paramAsString(req.params.id), req.body);
     sendSuccess(res, customer, 'Address added successfully', null, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAddressHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const customer = await customerService.updateAddress(
+      paramAsString(req.params.id),
+      paramAsString(req.params.addressId),
+      req.body
+    );
+    sendSuccess(res, customer, 'Address updated successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteAddressHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const customer = await customerService.deleteAddress(paramAsString(req.params.id), paramAsString(req.params.addressId));
+    sendSuccess(res, customer, 'Address deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getCustomerHistoryHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const history = await customerService.getCustomerHistory(paramAsString(req.params.id));
+    sendSuccess(res, history, 'Customer history fetched successfully');
   } catch (err) {
     next(err);
   }

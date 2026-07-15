@@ -31,6 +31,7 @@ export const createCustomerSchema = z.object({
 export const updateCustomerSchema = createCustomerSchema.partial();
 
 export const addAddressSchema = addressSchema;
+export const updateAddressSchema = addressSchema.partial();
 
 export const addProductSchema = z.object({
   brandId: z.string(),

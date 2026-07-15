@@ -59,8 +59,27 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export async function createCustomer(data: Record<string, unknown>) {
-  return CustomerModel.create(data);
+// Duplicate detection is surfaced automatically as a non-blocking warning on
+// create, per the acceptance criteria in docs/02-product-requirement-document.md —
+// staff sees potential matches but is never prevented from creating a genuinely
+// new customer (false positives are more costly than a missed duplicate).
+export async function createCustomer(data: {
+  name: string;
+  businessName?: string;
+  gstin?: string;
+  contacts: { name?: string; mobile: string; isPrimary: boolean }[];
+  [key: string]: unknown;
+}) {
+  const primaryMobile = data.contacts.find((c) => c.isPrimary)?.mobile ?? data.contacts[0]?.mobile;
+  const potentialDuplicates = await findDuplicates({
+    mobile: primaryMobile,
+    gstin: data.gstin,
+    businessName: data.businessName,
+    name: data.name,
+  });
+
+  const customer = await CustomerModel.create(data);
+  return { customer, potentialDuplicates };
 }
 
 export async function updateCustomer(id: string, data: Record<string, unknown>) {
@@ -77,6 +96,52 @@ export async function addAddress(id: string, address: Record<string, unknown>) {
   );
   if (!customer) throw new NotFoundError('Customer not found');
   return customer;
+}
+
+export async function updateAddress(customerId: string, addressId: string, data: Record<string, unknown>) {
+  const customer = await CustomerModel.findById(customerId);
+  if (!customer) throw new NotFoundError('Customer not found');
+
+  const address = customer.addresses.id(addressId);
+  if (!address) throw new NotFoundError('Address not found');
+
+  Object.assign(address, data);
+  await customer.save();
+  return customer;
+}
+
+export async function deleteAddress(customerId: string, addressId: string) {
+  const customer = await CustomerModel.findById(customerId);
+  if (!customer) throw new NotFoundError('Customer not found');
+
+  const address = customer.addresses.id(addressId);
+  if (!address) throw new NotFoundError('Address not found');
+
+  address.deleteOne();
+  await customer.save();
+  return customer;
+}
+
+// Aggregates a customer's activity across modules for the detail-page timeline.
+// Calls/Leads/Service Requests/Invoices don't exist yet (Phases 3-6), so those
+// sections return empty for now — the endpoint shape is final, the data fills in
+// as each dependent module lands, per docs/manish/07-api-development-sequence.md.
+export async function getCustomerHistory(id: string) {
+  const customer = await CustomerModel.findById(id);
+  if (!customer) throw new NotFoundError('Customer not found');
+
+  const products = await CustomerProductModel.find({ customerId: id });
+
+  return {
+    customerId: id,
+    products,
+    calls: [], // Phase 3
+    leads: [], // Phase 3
+    serviceRequests: [], // Phase 4
+    invoices: [], // Phase 6
+    payments: [], // Phase 6
+    feedback: [], // Phase 7
+  };
 }
 
 export async function addProduct(customerId: string, data: Record<string, unknown>) {

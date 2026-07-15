@@ -10,7 +10,7 @@ interface IContact {
   isPrimary: boolean;
 }
 
-interface IAddress {
+interface IAddress extends Types.Subdocument {
   label?: string;
   line1: string;
   line2?: string;
@@ -30,7 +30,7 @@ export interface ICustomer extends Document {
   businessName?: string;
   gstin?: string;
   contacts: IContact[];
-  addresses: IAddress[];
+  addresses: Types.DocumentArray<IAddress>;
   tags: string[];
   segments: string[];
   notes: string[];
