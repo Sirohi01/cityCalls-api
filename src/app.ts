@@ -15,6 +15,7 @@ import customersRoutes from './modules/customers/customers.routes';
 import catalogRoutes from './modules/catalog/catalog.routes';
 import callsRoutes from './modules/calls/calls.routes';
 import leadsRoutes from './modules/leads/leads.routes';
+import serviceRequestsRoutes from './modules/service-requests/serviceRequests.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -45,6 +46,7 @@ export function createApp(): Application {
   app.use('/api/v1', catalogRoutes);
   app.use('/api/v1', callsRoutes);
   app.use('/api/v1', leadsRoutes);
+  app.use('/api/v1', serviceRequestsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

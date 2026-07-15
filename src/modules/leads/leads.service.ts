@@ -1,6 +1,7 @@
 import { LeadModel } from './leads.model';
 import { CustomerModel } from '../customers/customers.model';
-import { NotFoundError, ConflictError, AppError, ForbiddenError } from '../../lib/errors';
+import { createServiceRequest } from '../service-requests/serviceRequests.service';
+import { NotFoundError, ConflictError, ForbiddenError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { getNextNumber } from '../../lib/numbering';
 import { assertValidTransition } from '../../lib/statusEngine';
@@ -102,11 +103,35 @@ export async function addNote(id: string, text: string, authorId: string) {
   return lead;
 }
 
+interface AddressSnapshotInput {
+  line1: string;
+  line2?: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  country: string;
+}
+
 interface ConvertInput {
   convertTo: 'CUSTOMER' | 'SERVICE_REQUEST';
   customerType: 'INDIVIDUAL' | 'BUSINESS';
   name?: string;
-  addresses: Record<string, unknown>[];
+  addresses: AddressSnapshotInput[];
+  serviceId?: string;
+  addressSnapshot?: AddressSnapshotInput;
+  symptoms: string[];
+}
+
+async function convertLeadToCustomer(lead: InstanceType<typeof LeadModel>, input: ConvertInput) {
+  if (lead.customerId) return CustomerModel.findById(lead.customerId);
+
+  return CustomerModel.create({
+    customerType: input.customerType,
+    name: input.name ?? lead.contactName ?? 'Unknown',
+    contacts: lead.contactMobile ? [{ name: lead.contactName, mobile: lead.contactMobile, isPrimary: true }] : [],
+    addresses: input.addresses,
+  });
 }
 
 export async function convertLead(id: string, input: ConvertInput, actor: AccessTokenPayload) {
@@ -114,20 +139,54 @@ export async function convertLead(id: string, input: ConvertInput, actor: Access
   if (!lead) throw new NotFoundError('Lead not found');
   if (lead.stage === 'CONVERTED') throw new ConflictError('Lead has already been converted');
 
+  assertValidTransition('LEAD', lead.stage, 'CONVERTED', actor.role);
+
   if (input.convertTo === 'SERVICE_REQUEST') {
-    // Service Requests don't exist yet (Phase 4) — this is a documented, honest
-    // gap, not a silent no-op. Re-enable once docs/manish/07 Phase 4 lands.
-    throw new AppError(409, 'Converting a lead directly to a Service Request is not available yet (Phase 4)', [
-      { field: 'convertTo', code: 'NOT_YET_IMPLEMENTED', message: 'Service Request module is not built yet — convert to Customer for now' },
-    ]);
+    // A Lead doesn't carry a structured service/address (it's free-text
+    // productInterest/requirement) — first ensure a Customer exists (reusing an
+    // already-linked one rather than creating a duplicate), then create the
+    // Service Request carrying the lead's requirement/priority forward, per
+    // the acceptance criteria in docs/02-product-requirement-document.md §3.2.
+    const customer = await convertLeadToCustomer(lead, input);
+    if (!customer) throw new NotFoundError('Linked customer not found');
+    // Validated as required by leads.validation.ts's superRefine when
+    // convertTo === 'SERVICE_REQUEST' — narrowed here for the type checker.
+    if (!input.addressSnapshot || !input.serviceId) {
+      throw new ConflictError('serviceId and addressSnapshot are required to convert to a service request', 'MISSING_CONVERSION_FIELDS');
+    }
+
+    const sr = await createServiceRequest(
+      {
+        customerId: customer._id.toString(),
+        addressSnapshot: input.addressSnapshot,
+        serviceId: input.serviceId,
+        symptoms: input.symptoms.length > 0 ? input.symptoms : lead.requirement ? [lead.requirement] : [],
+        priority: lead.priority,
+        source: 'LEAD_CONVERSION',
+        relatedLeadId: lead._id.toString(),
+      },
+      actor.sub
+    );
+
+    lead.stage = 'CONVERTED';
+    lead.convertedToCustomerId = customer._id as never;
+    lead.convertedToServiceRequestId = sr._id as never;
+    await lead.save();
+
+    await logActivity({
+      entityType: 'LEAD',
+      entityId: id,
+      user: actor,
+      action: 'CONVERTED',
+      module: 'leads',
+      newValue: { convertedToCustomerId: customer._id, convertedToServiceRequestId: sr._id },
+    });
+
+    return { lead, customer, serviceRequest: sr };
   }
 
-  const customer = await CustomerModel.create({
-    customerType: input.customerType,
-    name: input.name ?? lead.contactName ?? 'Unknown',
-    contacts: lead.contactMobile ? [{ name: lead.contactName, mobile: lead.contactMobile, isPrimary: true }] : [],
-    addresses: input.addresses,
-  });
+  const customer = await convertLeadToCustomer(lead, input);
+  if (!customer) throw new NotFoundError('Linked customer not found');
 
   lead.stage = 'CONVERTED';
   lead.convertedToCustomerId = customer._id as never;

@@ -4,6 +4,7 @@ import { connectDb } from './lib/db';
 import { loadPermissionCache } from './lib/permissionCache';
 import { loadStatusEngineCache } from './lib/statusEngine';
 import { initRealtime } from './realtime';
+import { startEscalationCheckInterval } from './jobs/escalationCheck';
 import { env } from './config/env';
 
 async function main(): Promise<void> {
@@ -14,15 +15,14 @@ async function main(): Promise<void> {
   const app = createApp();
   const httpServer = http.createServer(app);
   initRealtime(httpServer);
+  startEscalationCheckInterval();
 
   httpServer.listen(env.port, () => {
-     
     console.log(`[server] citycalls-api listening on port ${env.port} (${env.nodeEnv})`);
   });
 }
 
 main().catch((err) => {
-   
   console.error('[server] failed to start', err);
   process.exit(1);
 });

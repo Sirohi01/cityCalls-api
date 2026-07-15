@@ -33,12 +33,38 @@ export const addLeadNoteSchema = z.object({
   text: z.string().min(1),
 });
 
-export const convertLeadSchema = z.object({
-  convertTo: z.enum(['CUSTOMER', 'SERVICE_REQUEST']),
-  customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
-  name: z.string().min(2).optional(),
-  addresses: z.array(z.record(z.string(), z.unknown())).default([]),
+const addressSnapshotSchema = z.object({
+  line1: z.string().min(1),
+  line2: z.string().optional(),
+  landmark: z.string().optional(),
+  city: z.string().min(1),
+  state: z.string().min(1),
+  pinCode: z.string().min(4),
+  country: z.string().default('India'),
 });
+
+export const convertLeadSchema = z
+  .object({
+    convertTo: z.enum(['CUSTOMER', 'SERVICE_REQUEST']),
+    customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
+    name: z.string().min(2).optional(),
+    addresses: z.array(addressSnapshotSchema).default([]),
+    // Required only when convertTo === 'SERVICE_REQUEST' — a Lead doesn't carry
+    // a structured service/address/symptoms, so conversion needs them supplied.
+    serviceId: z.string().optional(),
+    addressSnapshot: addressSnapshotSchema.optional(),
+    symptoms: z.array(z.string()).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (data.convertTo === 'SERVICE_REQUEST') {
+      if (!data.serviceId) {
+        ctx.addIssue({ code: 'custom', path: ['serviceId'], message: 'serviceId is required to convert a lead into a service request' });
+      }
+      if (!data.addressSnapshot) {
+        ctx.addIssue({ code: 'custom', path: ['addressSnapshot'], message: 'addressSnapshot is required to convert a lead into a service request' });
+      }
+    }
+  });
 
 export const bulkAssignLeadsSchema = z.object({
   leadIds: z.array(z.string()).min(1),

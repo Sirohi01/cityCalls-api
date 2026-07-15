@@ -27,69 +27,88 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
   // Super Admin / Admin: full access to every module built so far. Per
   // docs/05-user-roles-and-permissions.md §6, these two roles also carry
   // assignment-bypass authority once Service Requests exist (Phase 4).
-  ...allFor('SUPER_ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial'], 'ALL'),
-  ...allFor('ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial'], 'ALL'),
+  ...allFor('SUPER_ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial', 'assign'], 'ALL'),
+  ...allFor('ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial', 'assign'], 'ALL'),
 
   // Branch Manager: manages their own branch's org structure, employees, vendors
-  // (view only), customers, calls, and leads; can view (not edit) masters/catalog.
-  ...allFor('BRANCH_MANAGER', ['organization', 'employees', 'customers', 'calls', 'leads'], CRUD, 'BRANCH'),
+  // (view only), customers, calls, leads, and service requests (incl. dispatch);
+  // can view (not edit) masters/catalog.
+  ...allFor('BRANCH_MANAGER', ['organization', 'employees', 'customers', 'calls', 'leads', 'serviceRequests'], CRUD, 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['serviceRequests'], ['assign'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
-  ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers'], CRUD, 'SUB_BRANCH'),
+  ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
+  ...allFor('SUB_BRANCH_ADMIN', ['serviceRequests'], ['assign'], 'SUB_BRANCH'),
   ...allFor('SUB_BRANCH_ADMIN', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
 
   // Team Lead / Employee: view their own team's employee records, view/edit
-  // customers assigned to their team.
+  // customers and service requests assigned to their team/themselves.
   ...allFor('TEAM_LEAD', ['employees'], ['view'], 'TEAM'),
-  ...allFor('TEAM_LEAD', ['customers'], ['view', 'edit'], 'TEAM'),
+  ...allFor('TEAM_LEAD', ['customers', 'serviceRequests'], ['view', 'edit'], 'TEAM'),
   ...allFor('EMPLOYEE', ['customers'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('EMPLOYEE', ['serviceRequests'], ['view', 'edit'], 'OWN'),
+  ...allFor('TECHNICIAN', ['serviceRequests'], ['view', 'edit'], 'OWN'),
+  ...allFor('TECHNICIAN', ['catalog'], ['view'], 'ALL'),
 
-  // Call Executive: creates/edits customers and calls within their branch, needs
-  // to see the service catalog to log calls/bookings.
-  ...allFor('CALL_EXECUTIVE', ['customers', 'calls'], ['view', 'create', 'edit'], 'BRANCH'),
+  // Call Executive: creates/edits customers, calls, and service requests (booking
+  // on the customer's behalf) within their branch, needs to see the service
+  // catalog to log calls/bookings.
+  ...allFor('CALL_EXECUTIVE', ['customers', 'calls', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CALL_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('HAPPY_CALL_EXECUTIVE', ['calls'], ['view', 'create', 'edit'], 'BRANCH'),
-  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers'], ['view', 'create', 'edit'], 'BRANCH'),
+  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
 
   // Sales Executive: owns their own leads and those leads' customers.
   ...allFor('SALES_EXECUTIVE', ['customers', 'leads'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('SALES_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('MARKETING_EXECUTIVE', ['leads'], ['view', 'create'], 'ALL'),
 
-  // Finance Executive / Accountant: financial visibility on customers and vendors,
-  // branch-scoped, plus read access to catalog pricing.
-  ...allFor('FINANCE_EXECUTIVE', ['customers', 'vendors'], ['view', 'viewFinancial'], 'BRANCH'),
+  // Finance Executive / Accountant: financial visibility on customers, vendors,
+  // and service requests, branch-scoped, plus read access to catalog pricing.
+  ...allFor('FINANCE_EXECUTIVE', ['customers', 'vendors', 'serviceRequests'], ['view', 'viewFinancial'], 'BRANCH'),
+  ...allFor('FINANCE_EXECUTIVE', ['serviceRequests'], ['edit'], 'BRANCH'), // payment recording
   ...allFor('FINANCE_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
-  ...allFor('ACCOUNTANT', ['customers', 'vendors'], ['view', 'viewFinancial'], 'BRANCH'),
+  ...allFor('ACCOUNTANT', ['customers', 'vendors', 'serviceRequests'], ['view', 'viewFinancial'], 'BRANCH'),
+  ...allFor('ACCOUNTANT', ['serviceRequests'], ['edit'], 'BRANCH'),
 
   // Vendor Owner / Manager: manage their own vendor company's profile and
-  // technician roster; view (not edit) the customers/catalog relevant to their jobs.
+  // technician roster; view/edit the service requests assigned to their vendor,
+  // plus reassign within their own team (accept/reject/reassign a technician).
   ...allFor('VENDOR_OWNER', ['vendors'], ['view', 'edit', 'viewFinancial'], 'VENDOR'),
   ...allFor('VENDOR_OWNER', ['customers', 'catalog'], ['view'], 'VENDOR'),
+  ...allFor('VENDOR_OWNER', ['serviceRequests'], ['view', 'edit', 'assign'], 'VENDOR'),
   ...allFor('VENDOR_MANAGER', ['vendors'], ['view', 'edit'], 'VENDOR'),
   ...allFor('VENDOR_MANAGER', ['customers', 'catalog'], ['view'], 'VENDOR'),
+  ...allFor('VENDOR_MANAGER', ['serviceRequests'], ['view', 'edit', 'assign'], 'VENDOR'),
 
-  // Vendor Technician: sees only what's assigned to them.
+  // Vendor Technician / Outsourced Partner: sees and updates only what's assigned to them.
   ...allFor('VENDOR_TECHNICIAN', ['customers', 'catalog'], ['view'], 'OWN'),
+  ...allFor('VENDOR_TECHNICIAN', ['serviceRequests'], ['view', 'edit'], 'OWN'),
+  ...allFor('OUTSOURCED_PARTNER', ['serviceRequests'], ['view', 'edit'], 'OWN'),
 
   // Marketing/Ops Admin inherit the Admin row narrowed to what they actually need —
   // kept minimal until Marketing/AI modules exist (Phase 8-9).
-  ...allFor('OPERATIONS_ADMIN', ALL_BUILT_MODULES, CRUD, 'ALL'),
+  ...allFor('OPERATIONS_ADMIN', ALL_BUILT_MODULES, [...CRUD, 'assign'], 'ALL'),
 
-  // Customer: sees their own profile only, and the public catalog.
+  // Customer: sees their own profile and their own service requests (booking,
+  // tracking, cancel/reschedule/approve-estimate/confirm-completion all ride on
+  // the same 'edit' + OWN scope — the status engine restricts which specific
+  // transitions a CUSTOMER can actually make), and the public catalog.
   ...allFor('CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('CUSTOMER', ['catalog'], ['view'], 'ALL'),
+  ...allFor('CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
+  ...allFor('BUSINESS_CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
 ];
 
 // Lead stage transitions per docs/07-status-transition-matrix.md §3. "Owner" in
@@ -136,6 +155,108 @@ const STATUS_TRANSITIONS: TransitionRow[] = [
   { entityType: 'LEAD', fromStatus: 'INVALID', toStatus: 'FOLLOW_UP', allowedRoles: LEAD_MANAGER_ROLES },
 ];
 
+// Service Request status transitions per docs/07-status-transition-matrix.md §2,
+// the full 37-status table. Role groups below mirror the "Allowed actor(s)"
+// column; where the doc says "the assignee," that's covered by EMPLOYEE/
+// TECHNICIAN/VENDOR_* roles (per-record assignment matching is enforced by the
+// OWN/VENDOR data scope in the permission layer, not re-checked here).
+const ADMIN_BYPASS: Role[] = ['SUPER_ADMIN', 'ADMIN'];
+const DISPATCH_DOWN_CHAIN: Role[] = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'SUB_BRANCH_ADMIN'];
+const BYPASS_TO_VENDOR: Role[] = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const ASSIGNEE_ACTION_ROLES: Role[] = ['EMPLOYEE', 'TECHNICIAN', 'VENDOR_OWNER', 'VENDOR_MANAGER', 'VENDOR_TECHNICIAN', 'OUTSOURCED_PARTNER'];
+const FIELD_ROLES: Role[] = ['EMPLOYEE', 'TECHNICIAN', 'VENDOR_TECHNICIAN'];
+const SCHEDULE_ROLES: Role[] = [...FIELD_ROLES, 'CALL_EXECUTIVE', 'BRANCH_MANAGER'];
+const CUSTOMER_ROLES: Role[] = ['CUSTOMER', 'BUSINESS_CUSTOMER'];
+const PAYMENT_ROLES: Role[] = [...FIELD_ROLES, 'FINANCE_EXECUTIVE', 'ACCOUNTANT'];
+const CLOSE_ROLES: Role[] = ['HAPPY_CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
+const FOLLOWUP_ROLES: Role[] = ['CUSTOMER_SUPPORT_EXECUTIVE', 'HAPPY_CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
+const ESCALATION_CLOSE_ROLES: Role[] = ['BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+const CANCEL_ROLES: Role[] = [...CUSTOMER_ROLES, 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+const REOPEN_ROLES: Role[] = [...CUSTOMER_ROLES, 'CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
+
+const SERVICE_REQUEST_TRANSITIONS: TransitionRow[] = [
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'NEW', toStatus: 'ASSIGNED_TO_BRANCH', allowedRoles: ADMIN_BYPASS },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'NEEDS_MANUAL_BRANCH_ASSIGNMENT', toStatus: 'ASSIGNED_TO_BRANCH', allowedRoles: ADMIN_BYPASS },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_BRANCH', toStatus: 'ASSIGNED_TO_SUB_BRANCH', allowedRoles: DISPATCH_DOWN_CHAIN },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_SUB_BRANCH', toStatus: 'ASSIGNED_TO_TEAM', allowedRoles: DISPATCH_DOWN_CHAIN },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_SUB_BRANCH', toStatus: 'ASSIGNED_TO_EMPLOYEE', allowedRoles: DISPATCH_DOWN_CHAIN },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_BRANCH', toStatus: 'ASSIGNED_TO_TEAM', allowedRoles: DISPATCH_DOWN_CHAIN },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_BRANCH', toStatus: 'ASSIGNED_TO_EMPLOYEE', allowedRoles: DISPATCH_DOWN_CHAIN },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ASSIGNED_TO_TEAM', toStatus: 'ASSIGNED_TO_EMPLOYEE', allowedRoles: DISPATCH_DOWN_CHAIN },
+
+  // Accept/reject from every assignable state.
+  ...(['ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM', 'ASSIGNED_TO_EMPLOYEE', 'ASSIGNED_TO_VENDOR', 'OUTSOURCED'] as const).flatMap(
+    (from) => [
+      { entityType: 'SERVICE_REQUEST' as EntityType, fromStatus: from, toStatus: 'ACCEPTED', allowedRoles: ASSIGNEE_ACTION_ROLES },
+      { entityType: 'SERVICE_REQUEST' as EntityType, fromStatus: from, toStatus: 'REASSIGNMENT_REQUIRED', allowedRoles: [...ASSIGNEE_ACTION_ROLES, ...ADMIN_BYPASS] },
+    ]
+  ),
+  // Re-dispatch from REASSIGNMENT_REQUIRED back into any assignable state.
+  ...(['ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM', 'ASSIGNED_TO_EMPLOYEE', 'ASSIGNED_TO_VENDOR', 'OUTSOURCED'] as const).map(
+    (to) => ({ entityType: 'SERVICE_REQUEST' as EntityType, fromStatus: 'REASSIGNMENT_REQUIRED', toStatus: to, allowedRoles: DISPATCH_DOWN_CHAIN })
+  ),
+
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ACCEPTED', toStatus: 'APPOINTMENT_SCHEDULED', allowedRoles: SCHEDULE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'APPOINTMENT_SCHEDULED', toStatus: 'RESCHEDULED', allowedRoles: [...SCHEDULE_ROLES, ...CUSTOMER_ROLES] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'APPOINTMENT_SCHEDULED', toStatus: 'TECHNICIAN_EN_ROUTE', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'RESCHEDULED', toStatus: 'TECHNICIAN_EN_ROUTE', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'TECHNICIAN_EN_ROUTE', toStatus: 'TECHNICIAN_ARRIVED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'TECHNICIAN_ARRIVED', toStatus: 'CUSTOMER_UNAVAILABLE', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'CUSTOMER_UNAVAILABLE', toStatus: 'APPOINTMENT_SCHEDULED', allowedRoles: SCHEDULE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'CUSTOMER_UNAVAILABLE', toStatus: 'RESCHEDULED', allowedRoles: SCHEDULE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'TECHNICIAN_ARRIVED', toStatus: 'INSPECTION_STARTED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'INSPECTION_STARTED', toStatus: 'INSPECTION_COMPLETED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'INSPECTION_COMPLETED', toStatus: 'ESTIMATE_PENDING', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'INSPECTION_COMPLETED', toStatus: 'WORK_STARTED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_PENDING', toStatus: 'ESTIMATE_SHARED', allowedRoles: [...FIELD_ROLES, 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE'] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_SHARED', toStatus: 'AWAITING_CUSTOMER_APPROVAL', allowedRoles: [...FIELD_ROLES, 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE'] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_APPROVED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_REJECTED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_APPROVED', toStatus: 'WORK_STARTED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_REJECTED', toStatus: 'CLOSED', allowedRoles: ESCALATION_CLOSE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_REJECTED', toStatus: 'CANCELLED', allowedRoles: ESCALATION_CLOSE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'WORK_STARTED', toStatus: 'WORK_IN_PROGRESS', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'WORK_IN_PROGRESS', toStatus: 'PARTS_PENDING', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'WORK_IN_PROGRESS', toStatus: 'ON_HOLD', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PARTS_PENDING', toStatus: 'WORK_IN_PROGRESS', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'ON_HOLD', toStatus: 'WORK_IN_PROGRESS', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'WORK_IN_PROGRESS', toStatus: 'SERVICE_COMPLETED', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'SERVICE_COMPLETED', toStatus: 'CUSTOMER_CONFIRMATION_PENDING', allowedRoles: FIELD_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'CUSTOMER_CONFIRMATION_PENDING', toStatus: 'PAYMENT_PENDING', allowedRoles: [...CUSTOMER_ROLES, ...FIELD_ROLES] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PAYMENT_PENDING', toStatus: 'PARTIALLY_PAID', allowedRoles: PAYMENT_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PAYMENT_PENDING', toStatus: 'PAID', allowedRoles: PAYMENT_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PARTIALLY_PAID', toStatus: 'PAID', allowedRoles: ['FINANCE_EXECUTIVE', 'ACCOUNTANT'] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PAID', toStatus: 'FOLLOW_UP_PENDING', allowedRoles: FOLLOWUP_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'FOLLOW_UP_PENDING', toStatus: 'HAPPY_CALL_PENDING', allowedRoles: FOLLOWUP_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'HAPPY_CALL_PENDING', toStatus: 'CLOSED', allowedRoles: CLOSE_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'CLOSED', toStatus: 'REOPENED', allowedRoles: REOPEN_ROLES },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'PAID', toStatus: 'REOPENED', allowedRoles: REOPEN_ROLES },
+];
+
+// "Any ASSIGNED_TO_* / NEW state -> ASSIGNED_TO_VENDOR / OUTSOURCED (bypass)" —
+// generated rather than hand-written per docs/06-complete-workflow-document.md
+// Stage 2's "OR request assigned directly to Vendor/Outsource" branch.
+const BYPASS_SOURCE_STATUSES = ['NEW', 'NEEDS_MANUAL_BRANCH_ASSIGNMENT', 'ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM', 'ASSIGNED_TO_EMPLOYEE'];
+for (const from of BYPASS_SOURCE_STATUSES) {
+  SERVICE_REQUEST_TRANSITIONS.push(
+    { entityType: 'SERVICE_REQUEST', fromStatus: from, toStatus: 'ASSIGNED_TO_VENDOR', allowedRoles: BYPASS_TO_VENDOR },
+    { entityType: 'SERVICE_REQUEST', fromStatus: from, toStatus: 'OUTSOURCED', allowedRoles: BYPASS_TO_VENDOR }
+  );
+}
+
+// "Any pre-PAID status -> CANCELLED" — docs/07-status-transition-matrix.md §2.
+const PRE_PAID_STATUSES = [
+  'NEW', 'NEEDS_MANUAL_BRANCH_ASSIGNMENT', 'ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM',
+  'ASSIGNED_TO_EMPLOYEE', 'ASSIGNED_TO_VENDOR', 'OUTSOURCED', 'REASSIGNMENT_REQUIRED', 'ACCEPTED',
+  'APPOINTMENT_SCHEDULED', 'RESCHEDULED', 'CUSTOMER_UNAVAILABLE', 'TECHNICIAN_EN_ROUTE', 'TECHNICIAN_ARRIVED',
+  'INSPECTION_STARTED', 'INSPECTION_COMPLETED', 'ESTIMATE_PENDING', 'ESTIMATE_SHARED', 'AWAITING_CUSTOMER_APPROVAL',
+  'ESTIMATE_APPROVED', 'PARTS_PENDING', 'WORK_STARTED', 'WORK_IN_PROGRESS', 'ON_HOLD', 'SERVICE_COMPLETED',
+  'CUSTOMER_CONFIRMATION_PENDING', 'PAYMENT_PENDING',
+];
+for (const from of PRE_PAID_STATUSES) {
+  SERVICE_REQUEST_TRANSITIONS.push({ entityType: 'SERVICE_REQUEST', fromStatus: from, toStatus: 'CANCELLED', allowedRoles: CANCEL_ROLES });
+}
+
 async function seed(): Promise<void> {
   await connectDb();
 
@@ -148,8 +269,9 @@ async function seed(): Promise<void> {
     );
   }
 
-  console.log(`[seed] upserting ${STATUS_TRANSITIONS.length} status-transition entries...`);
-  for (const t of STATUS_TRANSITIONS) {
+  const allTransitions = [...STATUS_TRANSITIONS, ...SERVICE_REQUEST_TRANSITIONS];
+  console.log(`[seed] upserting ${allTransitions.length} status-transition entries...`);
+  for (const t of allTransitions) {
     await StatusTransitionModel.findOneAndUpdate(
       { entityType: t.entityType, fromStatus: t.fromStatus, toStatus: t.toStatus },
       { allowedRoles: t.allowedRoles },
