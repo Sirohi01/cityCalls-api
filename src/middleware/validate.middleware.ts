@@ -24,7 +24,17 @@ export function validate(schema: ZodSchema, part: RequestPart = 'body') {
       });
       return;
     }
-    req[part] = result.data;
+    // Express 5 made `req.query` a getter-only accessor (lazily parsed from
+    // req.url) — a plain `req.query = result.data` throws
+    // "Cannot set property query of #<IncomingMessage> which has only a getter".
+    // Redefining the property descriptor replaces the accessor with a plain
+    // writable data property, which works for query/params/body alike.
+    Object.defineProperty(req, part, {
+      value: result.data,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
     next();
   };
 }
