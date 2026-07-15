@@ -13,6 +13,8 @@ export const DOCUMENT_TYPES = [
   'DEBIT_NOTE',
   'CUSTOMER',
   'VENDOR',
+  'VENDOR_INVOICE',
+  'VENDOR_PAYOUT',
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];

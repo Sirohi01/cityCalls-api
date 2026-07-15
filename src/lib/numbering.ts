@@ -14,6 +14,8 @@ const DEFAULT_PREFIX: Record<DocumentType, string> = {
   DEBIT_NOTE: 'DN',
   CUSTOMER: 'CU',
   VENDOR: 'VN',
+  VENDOR_INVOICE: 'VI',
+  VENDOR_PAYOUT: 'VP',
 };
 
 // Branch/FY-scoped document types vs. org-wide ones (Customer, Vendor).
@@ -27,6 +29,8 @@ const BRANCH_AND_FY_SCOPED: DocumentType[] = [
   'PAYMENT_RECEIPT',
   'CREDIT_NOTE',
   'DEBIT_NOTE',
+  'VENDOR_INVOICE',
+  'VENDOR_PAYOUT',
 ];
 
 // India financial year (Apr-Mar) formatted as "2526" for FY2025-26.

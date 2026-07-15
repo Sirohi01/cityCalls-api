@@ -14,6 +14,7 @@ export interface IVendor extends Document {
   bankDetails?: { accountNumber: string; ifsc: string; accountHolderName: string };
   agreement?: { url: string; expiryDate: Date };
   commissionModel: 'FIXED' | 'SERVICE_WISE';
+  commissionRate: number; // percent, applied flat when commissionModel is FIXED — docs/manish/05 §Vendors: per-service rates are a documented extension, not built yet
   active: boolean;
   blacklisted: boolean;
   blacklistReason?: string;
@@ -39,6 +40,7 @@ const vendorSchema = new Schema<IVendor>(
     },
     agreement: { url: String, expiryDate: Date },
     commissionModel: { type: String, enum: ['FIXED', 'SERVICE_WISE'], default: 'FIXED' },
+    commissionRate: { type: Number, default: 0 },
     active: { type: Boolean, default: true },
     blacklisted: { type: Boolean, default: false },
     blacklistReason: { type: String },

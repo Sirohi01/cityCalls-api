@@ -27,7 +27,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -45,6 +45,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
   ...allFor('BRANCH_MANAGER', ['fieldExecution'], ['view'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['files'], ['view', 'create'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['finance'], ['view', 'create', 'edit', 'viewFinancial'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
@@ -62,8 +63,10 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('EMPLOYEE', ['catalog'], ['view'], 'ALL'),
   ...allFor('EMPLOYEE', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('EMPLOYEE', ['files'], ['create'], 'OWN'),
+  ...allFor('EMPLOYEE', ['finance'], ['view', 'create', 'edit'], 'OWN'), // drafts estimates, records collections on own jobs
   ...allFor('TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('TECHNICIAN', ['files'], ['create'], 'OWN'),
+  ...allFor('TECHNICIAN', ['finance'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('TECHNICIAN', ['catalog'], ['view'], 'ALL'),
 
   // Call Executive: creates/edits customers, calls, and service requests (booking
@@ -85,8 +88,10 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('FINANCE_EXECUTIVE', ['customers', 'vendors', 'serviceRequests'], ['view', 'viewFinancial'], 'BRANCH'),
   ...allFor('FINANCE_EXECUTIVE', ['serviceRequests'], ['edit'], 'BRANCH'), // payment recording
   ...allFor('FINANCE_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('FINANCE_EXECUTIVE', ['finance'], [...CRUD, 'viewFinancial'], 'BRANCH'),
   ...allFor('ACCOUNTANT', ['customers', 'vendors', 'serviceRequests'], ['view', 'viewFinancial'], 'BRANCH'),
   ...allFor('ACCOUNTANT', ['serviceRequests'], ['edit'], 'BRANCH'),
+  ...allFor('ACCOUNTANT', ['finance'], [...CRUD, 'viewFinancial'], 'BRANCH'),
 
   // Vendor Owner / Manager: manage their own vendor company's profile and
   // technician roster; view/edit the service requests assigned to their vendor,
@@ -120,10 +125,12 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
   ...allFor('CUSTOMER', ['files'], ['create'], 'OWN'), // issue images at booking time
+  ...allFor('CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'), // view + approve/reject own estimates, view own invoices/receipts
   ...allFor('BUSINESS_CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
   ...allFor('BUSINESS_CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
+  ...allFor('BUSINESS_CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['files'], ['create'], 'OWN'),
 ];
 
@@ -273,6 +280,27 @@ for (const from of PRE_PAID_STATUSES) {
   SERVICE_REQUEST_TRANSITIONS.push({ entityType: 'SERVICE_REQUEST', fromStatus: from, toStatus: 'CANCELLED', allowedRoles: CANCEL_ROLES });
 }
 
+// Estimate / Proforma Invoice / Invoice status transitions per
+// docs/07-status-transition-matrix.md §5. DRAFT is the creation-time status
+// (not seeded as a transition, matching how NEW/DRAFT states are handled
+// elsewhere — creation bypasses the engine, only explicit changes go through it).
+const FINANCE_DOC_ROLES: Role[] = ['EMPLOYEE', 'TECHNICIAN', 'VENDOR_TECHNICIAN', 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
+const INVOICE_CANCEL_ROLES: Role[] = ['FINANCE_EXECUTIVE', 'ACCOUNTANT', 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+
+const FINANCE_TRANSITIONS: TransitionRow[] = [
+  { entityType: 'ESTIMATE', fromStatus: 'DRAFT', toStatus: 'SHARED', allowedRoles: FINANCE_DOC_ROLES },
+  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'APPROVED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'REJECTED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'ESTIMATE', fromStatus: 'APPROVED', toStatus: 'CONVERTED', allowedRoles: FINANCE_DOC_ROLES },
+
+  { entityType: 'PROFORMA_INVOICE', fromStatus: 'DRAFT', toStatus: 'SHARED', allowedRoles: FINANCE_DOC_ROLES },
+  { entityType: 'PROFORMA_INVOICE', fromStatus: 'SHARED', toStatus: 'ACCEPTED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'PROFORMA_INVOICE', fromStatus: 'ACCEPTED', toStatus: 'CONVERTED', allowedRoles: FINANCE_DOC_ROLES },
+
+  { entityType: 'INVOICE', fromStatus: 'DRAFT', toStatus: 'CANCELLED', allowedRoles: INVOICE_CANCEL_ROLES },
+  { entityType: 'INVOICE', fromStatus: 'ISSUED', toStatus: 'CANCELLED', allowedRoles: INVOICE_CANCEL_ROLES },
+];
+
 async function seed(): Promise<void> {
   await connectDb();
 
@@ -285,7 +313,7 @@ async function seed(): Promise<void> {
     );
   }
 
-  const allTransitions = [...STATUS_TRANSITIONS, ...SERVICE_REQUEST_TRANSITIONS];
+  const allTransitions = [...STATUS_TRANSITIONS, ...SERVICE_REQUEST_TRANSITIONS, ...FINANCE_TRANSITIONS];
   console.log(`[seed] upserting ${allTransitions.length} status-transition entries...`);
   for (const t of allTransitions) {
     await StatusTransitionModel.findOneAndUpdate(

@@ -49,6 +49,7 @@ Phases 1-5 complete per `docs/manish/16-manifest-and-task-checklist.md`:
 - **Phase 3** — Calls (6 types), Leads (full lifecycle), the generic status-transition engine.
 - **Phase 4** — Service Requests (full 37-status lifecycle), Assignment Engine, working-hours-aware SLA, escalation job.
 - **Phase 5** — ServiceVisit model, offline sync-batch endpoint (idempotent, per-action conflict handling), Files module (Cloudinary + local-fallback adapters), completion-OTP, location-ping.
+- **Phase 6** — Estimate → Proforma Invoice → Invoice → Payment Receipt conversion chain, Credit/Debit notes, Vendor invoices/payouts. Server-side GST split (CGST/SGST vs IGST) computed from branch vs. customer state. Invoices are never edited post-payment (Credit/Debit Note only). PDF generation is a documented placeholder seam (no Puppeteer in this environment) — `pdfUrl` fields are populated with a deterministic stub path, not a real rendered file yet.
 
-Not yet run against a live MongoDB in this environment (Docker unavailable) — verification so far is typecheck/lint/unit-test level. Next: Phase 6 (Financial System).
+Not yet run against a live MongoDB in this environment (Docker unavailable) — verification so far is typecheck/lint/unit-test level. Next: Phase 7 (Follow-up and Happy Calls).
 

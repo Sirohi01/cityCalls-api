@@ -17,6 +17,9 @@ export interface IBranch extends Document {
   holidays: Date[];
   managerId?: Types.ObjectId;
   active: boolean;
+  // GST/billing details for financial documents — docs/16-pdf-and-financial-documents.md §3.
+  registeredAddress?: { line1: string; city: string; state: string; pinCode: string };
+  gstin?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +45,13 @@ const branchSchema = new Schema<IBranch>(
     holidays: { type: [Date], default: [] },
     managerId: { type: Schema.Types.ObjectId, ref: 'User' },
     active: { type: Boolean, default: true },
+    registeredAddress: {
+      line1: { type: String },
+      city: { type: String },
+      state: { type: String },
+      pinCode: { type: String },
+    },
+    gstin: { type: String, trim: true },
   },
   { timestamps: true }
 );
