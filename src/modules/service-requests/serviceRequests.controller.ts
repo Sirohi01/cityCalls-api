@@ -104,6 +104,15 @@ export async function reopenHandler(req: ScopedRequest, res: Response, next: Nex
   }
 }
 
+export async function reopenHistoryHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const history = await srService.getReopenHistory(paramAsString(req.params.id));
+    sendSuccess(res, history, 'Reopen history fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function assignmentHistoryHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const history = await srService.getAssignmentHistory(paramAsString(req.params.id));

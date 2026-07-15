@@ -5,6 +5,7 @@ import { loadPermissionCache } from './lib/permissionCache';
 import { loadStatusEngineCache } from './lib/statusEngine';
 import { initRealtime } from './realtime';
 import { startEscalationCheckInterval } from './jobs/escalationCheck';
+import { startHappyCallSchedulerInterval } from './jobs/happyCallScheduler';
 import { env } from './config/env';
 
 async function main(): Promise<void> {
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
   const httpServer = http.createServer(app);
   initRealtime(httpServer);
   startEscalationCheckInterval();
+  startHappyCallSchedulerInterval();
 
   httpServer.listen(env.port, () => {
     console.log(`[server] citycalls-api listening on port ${env.port} (${env.nodeEnv})`);

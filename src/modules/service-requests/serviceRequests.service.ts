@@ -14,7 +14,8 @@ import { logActivity } from '../../lib/auditLog';
 import { sendPlaceholderNotification } from '../../lib/notificationStub';
 import { emitServiceRequestStatusChanged, emitServiceRequestAssigned, emitTechnicianLocationUpdated } from '../../realtime';
 import { AccessTokenPayload } from '../../lib/jwt';
-import { CustomerModel } from '../customers/customers.model';
+import { CustomerModel, CustomerProductModel } from '../customers/customers.model';
+import { ReopenRecordModel } from '../follow-up/reopenRecords.model';
 import { OtpModel } from '../auth/otp.model';
 import crypto from 'crypto';
 import { UnauthorizedError } from '../../lib/errors';
@@ -250,10 +251,22 @@ export async function cancelServiceRequest(id: string, reason: string, actor: Ac
 
 // Basic reopen per docs/06-complete-workflow-document.md Stage 11 — checks
 // eligibility against the resolved policy and links the new request back to the
-// original. Full ReopenRecord tracking (reopen count, reopen SLA, complete
-// reopen history as its own queryable entity) is Phase 7 scope
-// (docs/manish/16 Phase 7) and not built yet — this creates the new linked
-// Service Request correctly, but doesn't yet maintain a separate reopen ledger.
+// original. Traces back to the ROOT of the reopen chain (a request reopened
+// twice counts as reopenCount 2 against the very first original, not just its
+// immediate parent) so recurring-issue reporting is accurate across multiple
+// reopens of the same underlying case.
+async function findRootServiceRequestId(sr: { isReopen: boolean; originalServiceRequestId?: unknown }): Promise<string> {
+  let current = sr;
+  let currentId = (current as { _id?: unknown })._id;
+  while (current.isReopen && current.originalServiceRequestId) {
+    const parent = await ServiceRequestModel.findById(current.originalServiceRequestId);
+    if (!parent) break;
+    currentId = parent._id;
+    current = parent;
+  }
+  return (currentId as { toString(): string }).toString();
+}
+
 export async function reopenServiceRequest(id: string, reason: string, actor: AccessTokenPayload) {
   const original = await ServiceRequestModel.findById(id);
   if (!original) throw new NotFoundError('Service request not found');
@@ -274,6 +287,19 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
   const windowDays = (policy.windowDays as number) ?? 90;
   const referenceDate = original.completedAt ?? original.closedAt ?? original.updatedAt;
   const withinWindow = referenceDate ? Date.now() - referenceDate.getTime() <= windowDays * 86_400_000 : false;
+
+  // Warranty applicability — in-warranty reopens typically waive the visiting
+  // charge (docs/06-complete-workflow-document.md Stage 11), checked against
+  // the linked appliance's warrantyExpiresAt, not just the reopen window itself.
+  let warrantyApplied = false;
+  if (original.customerProductId) {
+    const product = await CustomerProductModel.findById(original.customerProductId);
+    warrantyApplied = !!product?.warrantyExpiresAt && product.warrantyExpiresAt.getTime() > Date.now();
+  }
+
+  const rootId = await findRootServiceRequestId(original);
+  const priorReopenCount = await ReopenRecordModel.countDocuments({ originalServiceRequestId: rootId });
+  const reopenCount = priorReopenCount + 1;
 
   original.status = 'REOPENED';
   await original.save();
@@ -299,6 +325,16 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     createdBy: actor.sub,
   });
 
+  const reopenRecord = await ReopenRecordModel.create({
+    originalServiceRequestId: rootId,
+    newServiceRequestId: newSr._id,
+    reason,
+    reopenedBy: actor.sub,
+    withinPolicyWindow: withinWindow,
+    warrantyApplied,
+    reopenCount,
+  });
+
   await logActivity({
     entityType: 'SERVICE_REQUEST',
     entityId: id,
@@ -306,7 +342,7 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     action: 'REOPENED',
     module: 'service-requests',
     reason,
-    newValue: { newServiceRequestId: newSr._id, withinPolicyWindow: withinWindow, windowDays },
+    newValue: { newServiceRequestId: newSr._id, withinPolicyWindow: withinWindow, windowDays, reopenCount, warrantyApplied },
   });
 
   if (original.assigneeId) {
@@ -317,7 +353,23 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     });
   }
 
-  return { newServiceRequest: newSr, withinPolicyWindow: withinWindow, windowDays };
+  // Recurring-issue signal: flag for management attention rather than block
+  // the reopen — per docs/06 Stage 11, a high reopen count on the same
+  // product/customer indicates an unresolved underlying defect worth escalating.
+  if (reopenCount >= 3) {
+    newSr.isEscalated = true;
+    newSr.escalationReason = `Recurring issue: reopened ${reopenCount} times`;
+    await newSr.save();
+  }
+
+  return { newServiceRequest: newSr, reopenRecord, withinPolicyWindow: withinWindow, warrantyApplied, reopenCount, windowDays };
+}
+
+export async function getReopenHistory(serviceRequestId: string) {
+  const sr = await ServiceRequestModel.findById(serviceRequestId);
+  if (!sr) throw new NotFoundError('Service request not found');
+  const rootId = await findRootServiceRequestId(sr);
+  return ReopenRecordModel.find({ originalServiceRequestId: rootId }).sort({ reopenedAt: 1 });
 }
 
 export async function getAssignmentHistory(serviceRequestId: string) {

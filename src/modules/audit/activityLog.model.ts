@@ -5,7 +5,11 @@ import { Schema, model, Document, Types } from 'mongoose';
 export interface IActivityLog extends Document {
   entityType: string;
   entityId: Types.ObjectId;
-  userId: Types.ObjectId;
+  // Optional: a scheduled job (e.g. happyCallScheduler) has no human actor —
+  // userRole: 'SYSTEM' with userId absent, rather than pointing userId at some
+  // unrelated document's ID as a placeholder (which would be a wrong reference,
+  // not just a missing one).
+  userId?: Types.ObjectId;
   userRole: string;
   action: string;
   module: string;
@@ -21,7 +25,7 @@ export interface IActivityLog extends Document {
 const activityLogSchema = new Schema<IActivityLog>({
   entityType: { type: String, required: true },
   entityId: { type: Schema.Types.ObjectId, required: true },
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User' },
   userRole: { type: String, required: true },
   action: { type: String, required: true },
   module: { type: String, required: true },

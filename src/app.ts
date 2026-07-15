@@ -21,6 +21,7 @@ import filesRoutes from './modules/files/files.routes';
 import serviceVisitsRoutes from './modules/field-execution/serviceVisits.routes';
 import financeRoutes from './modules/finance/finance.routes';
 import vendorFinanceRoutes from './modules/vendors/vendorFinance.routes';
+import happyCallsRoutes from './modules/follow-up/happyCalls.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -59,6 +60,7 @@ export function createApp(): Application {
   app.use('/api/v1', serviceVisitsRoutes);
   app.use('/api/v1', financeRoutes);
   app.use('/api/v1', vendorFinanceRoutes);
+  app.use('/api/v1', happyCallsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

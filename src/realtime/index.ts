@@ -33,24 +33,32 @@ export function initRealtime(httpServer: HttpServer): SocketIOServer {
   return io;
 }
 
-export function getIo(): SocketIOServer {
-  if (!io) throw new Error('Socket.IO not initialized — call initRealtime() first');
-  return io;
+// Emitting a real-time event is best-effort, same as every other optional
+// integration in this codebase (docs/14-integration-architecture.md) — a
+// missing/uninitialized Socket.IO server (not yet booted, a background-job or
+// test context with no HTTP server attached, a future worker-process split)
+// must never crash the business operation that triggered the emit. Every
+// emit*() helper below goes through this guard instead of throwing.
+function emit(room: string, event: string, payload: unknown): void {
+  if (!io) {
+    console.warn(`[realtime] skipped emit '${event}' to '${room}' — Socket.IO not initialized`);
+    return;
+  }
+  io.to(room).emit(event, payload);
 }
 
-// Helpers for domain modules to emit without importing socket.io directly.
 export function emitServiceRequestStatusChanged(serviceRequestId: string, payload: unknown): void {
-  getIo().to(`service-request:${serviceRequestId}`).emit('service-request.status-changed', payload);
+  emit(`service-request:${serviceRequestId}`, 'service-request.status-changed', payload);
 }
 
 export function emitServiceRequestAssigned(serviceRequestId: string, payload: unknown): void {
-  getIo().to(`service-request:${serviceRequestId}`).emit('service-request.assigned', payload);
+  emit(`service-request:${serviceRequestId}`, 'service-request.assigned', payload);
 }
 
 export function emitTechnicianLocationUpdated(serviceRequestId: string, payload: unknown): void {
-  getIo().to(`service-request:${serviceRequestId}`).emit('technician.location-updated', payload);
+  emit(`service-request:${serviceRequestId}`, 'technician.location-updated', payload);
 }
 
 export function emitNotificationNew(userId: string, payload: unknown): void {
-  getIo().to(`user:${userId}:notifications`).emit('notification.new', payload);
+  emit(`user:${userId}:notifications`, 'notification.new', payload);
 }

@@ -27,7 +27,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -46,6 +46,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['fieldExecution'], ['view'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['files'], ['view', 'create'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['finance'], ['view', 'create', 'edit', 'viewFinancial'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
@@ -64,9 +65,11 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('EMPLOYEE', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('EMPLOYEE', ['files'], ['create'], 'OWN'),
   ...allFor('EMPLOYEE', ['finance'], ['view', 'create', 'edit'], 'OWN'), // drafts estimates, records collections on own jobs
+  ...allFor('EMPLOYEE', ['happyCalls'], ['view', 'edit'], 'OWN'), // default happy-call performer per happyCallScheduler.ts
   ...allFor('TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('TECHNICIAN', ['files'], ['create'], 'OWN'),
   ...allFor('TECHNICIAN', ['finance'], ['view', 'create', 'edit'], 'OWN'),
+  ...allFor('TECHNICIAN', ['happyCalls'], ['view', 'edit'], 'OWN'),
   ...allFor('TECHNICIAN', ['catalog'], ['view'], 'ALL'),
 
   // Call Executive: creates/edits customers, calls, and service requests (booking
@@ -76,7 +79,9 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CALL_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('CALL_EXECUTIVE', ['files'], ['view', 'create'], 'BRANCH'),
   ...allFor('HAPPY_CALL_EXECUTIVE', ['calls'], ['view', 'create', 'edit'], 'BRANCH'),
+  ...allFor('HAPPY_CALL_EXECUTIVE', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
+  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
 
   // Sales Executive: owns their own leads and those leads' customers.
   ...allFor('SALES_EXECUTIVE', ['customers', 'leads'], ['view', 'create', 'edit'], 'OWN'),
@@ -109,6 +114,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('VENDOR_TECHNICIAN', ['customers', 'catalog'], ['view'], 'OWN'),
   ...allFor('VENDOR_TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('VENDOR_TECHNICIAN', ['files'], ['create'], 'OWN'),
+  ...allFor('VENDOR_TECHNICIAN', ['happyCalls'], ['view', 'edit'], 'OWN'),
   ...allFor('OUTSOURCED_PARTNER', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('OUTSOURCED_PARTNER', ['files'], ['create'], 'OWN'),
 
