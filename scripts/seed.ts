@@ -28,7 +28,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -49,6 +49,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['finance'], ['view', 'create', 'edit', 'viewFinancial'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['marketing'], ['view'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['ai'], ['create'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
@@ -80,9 +81,11 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CALL_EXECUTIVE', ['customers', 'calls', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CALL_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('CALL_EXECUTIVE', ['files'], ['view', 'create'], 'BRANCH'),
+  ...allFor('CALL_EXECUTIVE', ['ai'], ['create'], 'BRANCH'), // call summarization / complaint classification
   ...allFor('HAPPY_CALL_EXECUTIVE', ['calls'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('HAPPY_CALL_EXECUTIVE', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
+  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['ai'], ['create'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
 
   // Sales Executive: owns their own leads and those leads' customers.

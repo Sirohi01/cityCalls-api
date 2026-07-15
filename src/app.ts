@@ -24,6 +24,7 @@ import vendorFinanceRoutes from './modules/vendors/vendorFinance.routes';
 import happyCallsRoutes from './modules/follow-up/happyCalls.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import campaignsRoutes from './modules/marketing/campaigns.routes';
+import aiRoutes from './modules/ai/ai.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -65,6 +66,7 @@ export function createApp(): Application {
   app.use('/api/v1', happyCallsRoutes);
   app.use('/api/v1', notificationsRoutes);
   app.use('/api/v1', campaignsRoutes);
+  app.use('/api/v1', aiRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
