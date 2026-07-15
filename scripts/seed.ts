@@ -28,7 +28,12 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai', 'reports'];
+// export/import are checked dynamically against each entity's own module
+// (see src/modules/import-export/dynamicPermission.ts) — only the five
+// modules actually wired into EXPORT_REGISTRY/IMPORT_REGISTRY need rows.
+const EXPORTABLE_MODULES = ['customers', 'leads', 'serviceRequests', 'calls', 'finance'];
+const IMPORTABLE_MODULES = ['customers', 'leads'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -37,6 +42,10 @@ const PERMISSIONS: PermissionRow[] = [
   // assignment-bypass authority once Service Requests exist (Phase 4).
   ...allFor('SUPER_ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial', 'assign'], 'ALL'),
   ...allFor('ADMIN', ALL_BUILT_MODULES, [...CRUD, 'manageSettings', 'viewFinancial', 'assign'], 'ALL'),
+  ...allFor('SUPER_ADMIN', EXPORTABLE_MODULES, ['export'], 'ALL'),
+  ...allFor('ADMIN', EXPORTABLE_MODULES, ['export'], 'ALL'),
+  ...allFor('SUPER_ADMIN', IMPORTABLE_MODULES, ['import'], 'ALL'),
+  ...allFor('ADMIN', IMPORTABLE_MODULES, ['import'], 'ALL'),
 
   // Branch Manager: manages their own branch's org structure, employees, vendors
   // (view only), customers, calls, leads, and service requests (incl. dispatch);
@@ -50,6 +59,9 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['marketing'], ['view'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['ai'], ['create'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['reports'], ['view'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', EXPORTABLE_MODULES, ['export'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', IMPORTABLE_MODULES, ['import'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
@@ -100,9 +112,13 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('FINANCE_EXECUTIVE', ['serviceRequests'], ['edit'], 'BRANCH'), // payment recording
   ...allFor('FINANCE_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
   ...allFor('FINANCE_EXECUTIVE', ['finance'], [...CRUD, 'viewFinancial'], 'BRANCH'),
+  ...allFor('FINANCE_EXECUTIVE', ['reports'], ['view'], 'BRANCH'),
+  ...allFor('FINANCE_EXECUTIVE', ['finance'], ['export'], 'BRANCH'),
   ...allFor('ACCOUNTANT', ['customers', 'vendors', 'serviceRequests'], ['view', 'viewFinancial'], 'BRANCH'),
   ...allFor('ACCOUNTANT', ['serviceRequests'], ['edit'], 'BRANCH'),
   ...allFor('ACCOUNTANT', ['finance'], [...CRUD, 'viewFinancial'], 'BRANCH'),
+  ...allFor('ACCOUNTANT', ['reports'], ['view'], 'BRANCH'),
+  ...allFor('ACCOUNTANT', ['finance'], ['export'], 'BRANCH'),
 
   // Vendor Owner / Manager: manage their own vendor company's profile and
   // technician roster; view/edit the service requests assigned to their vendor,

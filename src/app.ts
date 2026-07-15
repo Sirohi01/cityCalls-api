@@ -25,6 +25,9 @@ import happyCallsRoutes from './modules/follow-up/happyCalls.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import campaignsRoutes from './modules/marketing/campaigns.routes';
 import aiRoutes from './modules/ai/ai.routes';
+import reportsRoutes from './modules/reports/reports.routes';
+import exportRoutes from './modules/import-export/export.routes';
+import importRoutes from './modules/import-export/import.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -67,6 +70,9 @@ export function createApp(): Application {
   app.use('/api/v1', notificationsRoutes);
   app.use('/api/v1', campaignsRoutes);
   app.use('/api/v1', aiRoutes);
+  app.use('/api/v1', reportsRoutes);
+  app.use('/api/v1', exportRoutes);
+  app.use('/api/v1', importRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
