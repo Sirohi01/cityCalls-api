@@ -121,3 +121,32 @@ export async function assignmentCandidatesHandler(req: ScopedRequest, res: Respo
     next(err);
   }
 }
+
+export async function requestCompletionOtpHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await srService.requestCompletionOtp(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Completion OTP sent successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyCompletionOtpHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const { otp } = req.body as { otp: string };
+    const result = await srService.verifyCompletionOtp(paramAsString(req.params.id), otp);
+    sendSuccess(res, result, 'Completion OTP verified successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function locationPingHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const { lat, lng } = req.body as { lat: number; lng: number };
+    await srService.recordLocationPing(paramAsString(req.params.id), { lat, lng });
+    sendSuccess(res, null, 'Location ping recorded');
+  } catch (err) {
+    next(err);
+  }
+}

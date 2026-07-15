@@ -51,6 +51,15 @@ export const reopenSchema = z.object({
   reason: z.string().min(1),
 });
 
+export const verifyCompletionOtpSchema = z.object({
+  otp: z.string().length(6, 'Enter the 6-digit OTP'),
+});
+
+export const locationPingSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+});
+
 export const listServiceRequestsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

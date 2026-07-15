@@ -27,7 +27,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files'];
 const CRUD = ['view', 'create', 'edit'];
 
 const PERMISSIONS: PermissionRow[] = [
@@ -43,20 +43,27 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['organization', 'employees', 'customers', 'calls', 'leads', 'serviceRequests'], CRUD, 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['serviceRequests'], ['assign'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
+  ...allFor('BRANCH_MANAGER', ['fieldExecution'], ['view'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['files'], ['view', 'create'], 'BRANCH'),
 
   // Sub-Branch Admin: same shape as Branch Manager, scoped one level narrower.
   ...allFor('SUB_BRANCH_ADMIN', ['organization', 'employees', 'customers', 'serviceRequests'], CRUD, 'SUB_BRANCH'),
   ...allFor('SUB_BRANCH_ADMIN', ['serviceRequests'], ['assign'], 'SUB_BRANCH'),
   ...allFor('SUB_BRANCH_ADMIN', ['config', 'catalog', 'vendors'], ['view'], 'ALL'),
+  ...allFor('SUB_BRANCH_ADMIN', ['fieldExecution'], ['view'], 'SUB_BRANCH'),
 
   // Team Lead / Employee: view their own team's employee records, view/edit
-  // customers and service requests assigned to their team/themselves.
+  // customers and service requests assigned to their team/themselves, and
+  // enter field-execution data (inspection/parts/work/completion) for their own jobs.
   ...allFor('TEAM_LEAD', ['employees'], ['view'], 'TEAM'),
   ...allFor('TEAM_LEAD', ['customers', 'serviceRequests'], ['view', 'edit'], 'TEAM'),
+  ...allFor('TEAM_LEAD', ['fieldExecution'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['customers'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['catalog'], ['view'], 'ALL'),
-  ...allFor('EMPLOYEE', ['serviceRequests'], ['view', 'edit'], 'OWN'),
-  ...allFor('TECHNICIAN', ['serviceRequests'], ['view', 'edit'], 'OWN'),
+  ...allFor('EMPLOYEE', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
+  ...allFor('EMPLOYEE', ['files'], ['create'], 'OWN'),
+  ...allFor('TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
+  ...allFor('TECHNICIAN', ['files'], ['create'], 'OWN'),
   ...allFor('TECHNICIAN', ['catalog'], ['view'], 'ALL'),
 
   // Call Executive: creates/edits customers, calls, and service requests (booking
@@ -64,6 +71,7 @@ const PERMISSIONS: PermissionRow[] = [
   // catalog to log calls/bookings.
   ...allFor('CALL_EXECUTIVE', ['customers', 'calls', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CALL_EXECUTIVE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('CALL_EXECUTIVE', ['files'], ['view', 'create'], 'BRANCH'),
   ...allFor('HAPPY_CALL_EXECUTIVE', ['calls'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
 
@@ -85,15 +93,19 @@ const PERMISSIONS: PermissionRow[] = [
   // plus reassign within their own team (accept/reject/reassign a technician).
   ...allFor('VENDOR_OWNER', ['vendors'], ['view', 'edit', 'viewFinancial'], 'VENDOR'),
   ...allFor('VENDOR_OWNER', ['customers', 'catalog'], ['view'], 'VENDOR'),
-  ...allFor('VENDOR_OWNER', ['serviceRequests'], ['view', 'edit', 'assign'], 'VENDOR'),
+  ...allFor('VENDOR_OWNER', ['serviceRequests', 'fieldExecution'], ['view', 'edit', 'assign'], 'VENDOR'),
+  ...allFor('VENDOR_OWNER', ['files'], ['view', 'create'], 'VENDOR'),
   ...allFor('VENDOR_MANAGER', ['vendors'], ['view', 'edit'], 'VENDOR'),
   ...allFor('VENDOR_MANAGER', ['customers', 'catalog'], ['view'], 'VENDOR'),
-  ...allFor('VENDOR_MANAGER', ['serviceRequests'], ['view', 'edit', 'assign'], 'VENDOR'),
+  ...allFor('VENDOR_MANAGER', ['serviceRequests', 'fieldExecution'], ['view', 'edit', 'assign'], 'VENDOR'),
+  ...allFor('VENDOR_MANAGER', ['files'], ['view', 'create'], 'VENDOR'),
 
   // Vendor Technician / Outsourced Partner: sees and updates only what's assigned to them.
   ...allFor('VENDOR_TECHNICIAN', ['customers', 'catalog'], ['view'], 'OWN'),
-  ...allFor('VENDOR_TECHNICIAN', ['serviceRequests'], ['view', 'edit'], 'OWN'),
-  ...allFor('OUTSOURCED_PARTNER', ['serviceRequests'], ['view', 'edit'], 'OWN'),
+  ...allFor('VENDOR_TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
+  ...allFor('VENDOR_TECHNICIAN', ['files'], ['create'], 'OWN'),
+  ...allFor('OUTSOURCED_PARTNER', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
+  ...allFor('OUTSOURCED_PARTNER', ['files'], ['create'], 'OWN'),
 
   // Marketing/Ops Admin inherit the Admin row narrowed to what they actually need —
   // kept minimal until Marketing/AI modules exist (Phase 8-9).
@@ -106,9 +118,13 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('CUSTOMER', ['catalog'], ['view'], 'ALL'),
   ...allFor('CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
+  ...allFor('CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
+  ...allFor('CUSTOMER', ['files'], ['create'], 'OWN'), // issue images at booking time
   ...allFor('BUSINESS_CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
   ...allFor('BUSINESS_CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
+  ...allFor('BUSINESS_CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
+  ...allFor('BUSINESS_CUSTOMER', ['files'], ['create'], 'OWN'),
 ];
 
 // Lead stage transitions per docs/07-status-transition-matrix.md §3. "Owner" in

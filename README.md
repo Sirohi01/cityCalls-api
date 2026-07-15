@@ -42,4 +42,13 @@ See `src/modules/` for one folder per domain module (`docs/manish/02-backend-fol
 
 ## Status
 
-Phase 1 in progress: auth (login/refresh/logout), organization hierarchy (branches/sub-branches/teams), masters engine, numbering engine, policy resolver, and audit logging are scaffolded. Remaining Phase 1 work and all later phases per `docs/manish/16-manifest-and-task-checklist.md`.
+Phases 1-5 complete per `docs/manish/16-manifest-and-task-checklist.md`:
+
+- **Phase 1** — Auth (login/refresh/logout/OTP/password-reset), sessions, Users, org hierarchy, masters/numbering/policy engines, full RBAC seed, audit logging.
+- **Phase 2** — Customers (incl. addresses, duplicate detection, history), dynamic Service Catalog.
+- **Phase 3** — Calls (6 types), Leads (full lifecycle), the generic status-transition engine.
+- **Phase 4** — Service Requests (full 37-status lifecycle), Assignment Engine, working-hours-aware SLA, escalation job.
+- **Phase 5** — ServiceVisit model, offline sync-batch endpoint (idempotent, per-action conflict handling), Files module (Cloudinary + local-fallback adapters), completion-OTP, location-ping.
+
+Not yet run against a live MongoDB in this environment (Docker unavailable) — verification so far is typecheck/lint/unit-test level. Next: Phase 6 (Financial System).
+

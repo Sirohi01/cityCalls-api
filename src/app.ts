@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler, requestIdMiddleware } from './middleware/error.middleware';
 import { generalApiRateLimit } from './middleware/rateLimit.middleware';
@@ -16,6 +17,8 @@ import catalogRoutes from './modules/catalog/catalog.routes';
 import callsRoutes from './modules/calls/calls.routes';
 import leadsRoutes from './modules/leads/leads.routes';
 import serviceRequestsRoutes from './modules/service-requests/serviceRequests.routes';
+import filesRoutes from './modules/files/files.routes';
+import serviceVisitsRoutes from './modules/field-execution/serviceVisits.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -31,6 +34,9 @@ export function createApp(): Application {
   app.use(cookieParser());
   app.use(requestIdMiddleware);
   app.use('/api/v1', generalApiRateLimit);
+  // Serves files saved by the local fallback upload adapter (lib/fileStorage.ts) —
+  // unused when Cloudinary is enabled, since those URLs point at Cloudinary directly.
+  app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
   app.get('/api/v1/health', (_req: Request, res: Response) => {
     res.status(200).json({ success: true, message: 'ok', data: { env: env.nodeEnv }, meta: null, errors: null });
@@ -47,6 +53,8 @@ export function createApp(): Application {
   app.use('/api/v1', callsRoutes);
   app.use('/api/v1', leadsRoutes);
   app.use('/api/v1', serviceRequestsRoutes);
+  app.use('/api/v1', filesRoutes);
+  app.use('/api/v1', serviceVisitsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

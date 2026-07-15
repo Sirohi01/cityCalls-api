@@ -12,8 +12,12 @@ import { addBusinessMinutes } from '../../lib/businessCalendar';
 import { resolvePolicy } from '../../lib/policyResolver';
 import { logActivity } from '../../lib/auditLog';
 import { sendPlaceholderNotification } from '../../lib/notificationStub';
-import { emitServiceRequestStatusChanged, emitServiceRequestAssigned } from '../../realtime';
+import { emitServiceRequestStatusChanged, emitServiceRequestAssigned, emitTechnicianLocationUpdated } from '../../realtime';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { CustomerModel } from '../customers/customers.model';
+import { OtpModel } from '../auth/otp.model';
+import crypto from 'crypto';
+import { UnauthorizedError } from '../../lib/errors';
 
 const ASSIGNEE_TYPE_TO_STATUS: Record<AssigneeType, ServiceRequestStatus> = {
   BRANCH: 'ASSIGNED_TO_BRANCH',
@@ -318,4 +322,65 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
 
 export async function getAssignmentHistory(serviceRequestId: string) {
   return AssignmentHistoryModel.find({ serviceRequestId }).sort({ timestamp: -1 });
+}
+
+function hashOtp(otp: string): string {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
+
+function generateOtp(): string {
+  return crypto.randomInt(100000, 999999).toString();
+}
+
+// Completion-proof OTP — docs/manish/09-vendor-app-functional-plan.md §8, distinct
+// from the login OTP in auth.service.ts (this confirms work completion with the
+// customer present, it never issues a session). Reuses the OTP collection/shape
+// since the generate/hash/expire/attempt-limit mechanics are identical.
+export async function requestCompletionOtp(serviceRequestId: string): Promise<void> {
+  const sr = await ServiceRequestModel.findById(serviceRequestId);
+  if (!sr) throw new NotFoundError('Service request not found');
+
+  const customer = await CustomerModel.findById(sr.customerId);
+  const mobile = customer?.contacts.find((c) => c.isPrimary)?.mobile ?? customer?.contacts[0]?.mobile;
+  if (!mobile) throw new ConflictError('Customer has no registered mobile number for completion confirmation', 'NO_CUSTOMER_MOBILE');
+
+  const otp = generateOtp();
+  await OtpModel.create({
+    mobile,
+    otpHash: hashOtp(otp),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  });
+
+  sendPlaceholderNotification({ to: mobile, purpose: 'SERVICE_COMPLETION_OTP', payload: { serviceRequestId, otp } });
+}
+
+export async function verifyCompletionOtp(serviceRequestId: string, otp: string): Promise<{ verified: true }> {
+  const sr = await ServiceRequestModel.findById(serviceRequestId);
+  if (!sr) throw new NotFoundError('Service request not found');
+
+  const customer = await CustomerModel.findById(sr.customerId);
+  const mobile = customer?.contacts.find((c) => c.isPrimary)?.mobile ?? customer?.contacts[0]?.mobile;
+
+  const record = await OtpModel.findOne({ mobile }).sort({ createdAt: -1 });
+  if (!record || record.verified || record.expiresAt < new Date()) {
+    throw new UnauthorizedError('OTP expired or not found. Please request a new one.');
+  }
+  if (record.attempts >= 5) {
+    throw new UnauthorizedError('Too many incorrect attempts. Please request a new OTP.');
+  }
+  if (record.otpHash !== hashOtp(otp)) {
+    record.attempts += 1;
+    await record.save();
+    throw new UnauthorizedError('Incorrect OTP');
+  }
+
+  record.verified = true;
+  await record.save();
+  return { verified: true };
+}
+
+// Periodic technician-location ping while TECHNICIAN_EN_ROUTE — docs/manish/09 §5.
+// Event-based, not a continuous GPS trail (docs/08-system-architecture.md §4).
+export async function recordLocationPing(serviceRequestId: string, geo: { lat: number; lng: number }): Promise<void> {
+  emitTechnicianLocationUpdated(serviceRequestId, { serviceRequestId, geo, at: new Date() });
 }
