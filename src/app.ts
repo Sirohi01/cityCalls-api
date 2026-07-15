@@ -8,6 +8,10 @@ import { generalApiRateLimit } from './middleware/rateLimit.middleware';
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import configRoutes from './modules/config/config.routes';
+import employeesRoutes from './modules/employees/employees.routes';
+import vendorsRoutes from './modules/vendors/vendors.routes';
+import customersRoutes from './modules/customers/customers.routes';
+import catalogRoutes from './modules/catalog/catalog.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -31,6 +35,10 @@ export function createApp(): Application {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1', organizationRoutes);
   app.use('/api/v1', configRoutes);
+  app.use('/api/v1', employeesRoutes);
+  app.use('/api/v1', vendorsRoutes);
+  app.use('/api/v1', customersRoutes);
+  app.use('/api/v1', catalogRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
