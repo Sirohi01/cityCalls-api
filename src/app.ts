@@ -6,6 +6,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler, requestIdMiddleware } from './middleware/error.middleware';
 import { generalApiRateLimit } from './middleware/rateLimit.middleware';
 import authRoutes from './modules/auth/auth.routes';
+import usersRoutes from './modules/users/users.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import configRoutes from './modules/config/config.routes';
 import employeesRoutes from './modules/employees/employees.routes';
@@ -33,6 +34,7 @@ export function createApp(): Application {
   });
 
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1', usersRoutes);
   app.use('/api/v1', organizationRoutes);
   app.use('/api/v1', configRoutes);
   app.use('/api/v1', employeesRoutes);

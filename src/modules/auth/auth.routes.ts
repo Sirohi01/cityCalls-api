@@ -1,16 +1,43 @@
 import { Router } from 'express';
-import { loginHandler, refreshHandler, logoutHandler } from './auth.controller';
+import {
+  loginHandler,
+  refreshHandler,
+  logoutHandler,
+  otpRequestHandler,
+  otpVerifyHandler,
+  passwordResetRequestHandler,
+  passwordResetHandler,
+  listSessionsHandler,
+  revokeSessionHandler,
+  revokeAllSessionsHandler,
+} from './auth.controller';
 import { validate } from '../../middleware/validate.middleware';
-import { loginSchema, refreshSchema } from './auth.validation';
-import { authRateLimit } from '../../middleware/rateLimit.middleware';
+import { authMiddleware } from '../../middleware/auth.middleware';
+import {
+  loginSchema,
+  refreshSchema,
+  otpRequestSchema,
+  otpVerifySchema,
+  passwordResetRequestSchema,
+  passwordResetSchema,
+} from './auth.validation';
+import { authRateLimit, otpRateLimit } from '../../middleware/rateLimit.middleware';
 
 // Routes match docs/11-complete-api-contracts.md §1.1 and §2 (Auth row).
-// OTP endpoints (customer app) and password-reset are stubbed for a later pass —
-// see docs/manish/04-authentication-and-rbac-plan.md §1.
 const router = Router();
 
 router.post('/login', authRateLimit, validate(loginSchema), loginHandler);
 router.post('/refresh', validate(refreshSchema), refreshHandler);
 router.post('/logout', validate(refreshSchema), logoutHandler);
+
+router.post('/otp/request', otpRateLimit, validate(otpRequestSchema), otpRequestHandler);
+router.post('/otp/verify', otpRateLimit, validate(otpVerifySchema), otpVerifyHandler);
+
+router.post('/password/reset-request', authRateLimit, validate(passwordResetRequestSchema), passwordResetRequestHandler);
+router.post('/password/reset', authRateLimit, validate(passwordResetSchema), passwordResetHandler);
+
+router.get('/sessions', authMiddleware, listSessionsHandler);
+router.delete('/sessions/:id', authMiddleware, revokeSessionHandler);
+router.post('/sessions/revoke-all', authMiddleware, revokeAllSessionsHandler);
 
 export default router;

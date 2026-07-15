@@ -2,9 +2,12 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { UserModel, IUser } from '../users/users.model';
 import { SessionModel } from './sessions.model';
+import { OtpModel } from './otp.model';
+import { PasswordResetModel } from './passwordReset.model';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
-import { UnauthorizedError } from '../../lib/errors';
+import { UnauthorizedError, NotFoundError, AppError } from '../../lib/errors';
 import { env } from '../../config/env';
+import { sendPlaceholderNotification } from '../../lib/notificationStub';
 
 interface SessionMeta {
   device?: string;
@@ -131,4 +134,126 @@ export async function logout(refreshToken: string): Promise<void> {
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 12);
+}
+
+function generateOtp(): string {
+  return crypto.randomInt(100000, 999999).toString();
+}
+
+// docs/manish/04-authentication-and-rbac-plan.md §1: OTP-based login, primarily for the customer app.
+export async function requestOtp(mobile: string): Promise<void> {
+  const otp = generateOtp();
+  const otpHash = hashToken(otp);
+
+  await OtpModel.create({
+    mobile,
+    otpHash,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes, per docs/17 §4
+  });
+
+  sendPlaceholderNotification({ to: mobile, purpose: 'OTP_LOGIN', payload: { otp } });
+}
+
+export async function verifyOtp(mobile: string, otp: string, meta: SessionMeta): Promise<AuthResult> {
+  const record = await OtpModel.findOne({ mobile }).sort({ createdAt: -1 });
+  if (!record || record.verified || record.expiresAt < new Date()) {
+    throw new UnauthorizedError('OTP expired or not found. Please request a new one.');
+  }
+  if (record.attempts >= 5) {
+    throw new UnauthorizedError('Too many incorrect attempts. Please request a new OTP.');
+  }
+  if (record.otpHash !== hashToken(otp)) {
+    record.attempts += 1;
+    await record.save();
+    throw new UnauthorizedError('Incorrect OTP');
+  }
+
+  record.verified = true;
+  await record.save();
+
+  // Progressive registration: OTP login auto-creates a CUSTOMER account on first use,
+  // since customer accounts don't necessarily pre-exist (docs/manish/08 §1).
+  let user = await UserModel.findOne({ mobile });
+  if (!user) {
+    const placeholderPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+    user = await UserModel.create({
+      name: 'Customer',
+      mobile,
+      passwordHash: placeholderPasswordHash,
+      role: 'CUSTOMER',
+      status: 'ACTIVE',
+    });
+  }
+  if (user.status !== 'ACTIVE') {
+    throw new UnauthorizedError('Account is no longer active');
+  }
+
+  user.lastLoginAt = new Date();
+  await user.save();
+
+  return issueTokens(user, meta);
+}
+
+// docs/manish/04-authentication-and-rbac-plan.md §1: time-limited, single-use email link.
+export async function requestPasswordReset(identifier: string): Promise<void> {
+  const isEmail = identifier.includes('@');
+  const user = await UserModel.findOne(isEmail ? { email: identifier.toLowerCase() } : { mobile: identifier });
+
+  // Always succeed from the caller's perspective even if no account matches —
+  // does not confirm/deny account existence to an unauthenticated caller.
+  if (!user) return;
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await PasswordResetModel.create({
+    userId: user._id,
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+  });
+
+  sendPlaceholderNotification({
+    to: user.email ?? user.mobile,
+    purpose: 'PASSWORD_RESET',
+    payload: { token, userId: user._id.toString() },
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const tokenHash = hashToken(token);
+  const record = await PasswordResetModel.findOne({ tokenHash, usedAt: { $exists: false } });
+  if (!record || record.expiresAt < new Date()) {
+    throw new AppError(400, 'Invalid or expired reset link', [
+      { field: 'token', code: 'INVALID_RESET_TOKEN', message: 'This reset link is invalid or has expired' },
+    ]);
+  }
+
+  const user = await UserModel.findById(record.userId);
+  if (!user) throw new NotFoundError('Account not found');
+
+  user.passwordHash = await hashPassword(newPassword);
+  await user.save();
+
+  record.usedAt = new Date();
+  await record.save();
+
+  // Forced logout on password change — revoke every active session (docs/17-security-and-audit.md §9).
+  await SessionModel.updateMany({ userId: user._id, revokedAt: { $exists: false } }, { revokedAt: new Date() });
+}
+
+// Session management — docs/17-security-and-audit.md §9: users can revoke their own
+// sessions; Super Admin/Admin can revoke any user's (enforced at the route/permission layer).
+export async function listSessions(userId: string) {
+  return SessionModel.find({ userId, revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } })
+    .select('-refreshTokenHash')
+    .sort({ createdAt: -1 });
+}
+
+export async function revokeSession(userId: string, sessionId: string): Promise<void> {
+  const session = await SessionModel.findOne({ _id: sessionId, userId });
+  if (!session) throw new NotFoundError('Session not found');
+  session.revokedAt = new Date();
+  await session.save();
+}
+
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await SessionModel.updateMany({ userId, revokedAt: { $exists: false } }, { revokedAt: new Date() });
 }
