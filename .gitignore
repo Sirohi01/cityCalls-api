@@ -1,6 +1,10 @@
 node_modules/
 dist/
 uploads/
+# Local copy synced from citycalls-docs via scripts/sync-contracts.sh — the
+# canonical spec lives in citycalls-docs, this is a derived/regenerable
+# artifact, never committed here.
+openapi/
 .env
 .env.local
 *.log
