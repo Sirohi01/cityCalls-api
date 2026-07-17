@@ -4,6 +4,8 @@ import { UserModel, IUser } from '../users/users.model';
 import { SessionModel } from './sessions.model';
 import { OtpModel } from './otp.model';
 import { PasswordResetModel } from './passwordReset.model';
+import { RolePermissionModel } from '../config/rolePermissions.model';
+import { DataScope } from '../users/users.types';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
 import { UnauthorizedError, NotFoundError, AppError } from '../../lib/errors';
 import { env } from '../../config/env';
@@ -210,9 +212,10 @@ export async function requestPasswordReset(identifier: string): Promise<void> {
     expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
   });
 
+  const resetUrl = `${env.corsAllowedOrigins[0]}/reset-password?token=${token}`;
   await trigger('PASSWORD_RESET', {
     recipient: { userId: user._id.toString(), email: user.email, mobile: user.mobile },
-    variables: { token, userId: user._id.toString() },
+    variables: { token, userId: user._id.toString(), resetUrl },
   });
 }
 
@@ -255,4 +258,26 @@ export async function revokeSession(userId: string, sessionId: string): Promise<
 
 export async function revokeAllSessions(userId: string): Promise<void> {
   await SessionModel.updateMany({ userId, revokedAt: { $exists: false } }, { revokedAt: new Date() });
+}
+
+// docs/manish/10-admin-functional-integration-plan.md §3: exposes the
+// current user's profile plus their RESOLVED permission set (not just role
+// name), so the frontend's usePermission(module, action) hook can check
+// access without re-deriving the server-side permission matrix itself.
+// Shape: permissions[module][action] = dataScope, so a real access check is
+// `Boolean(permissions[module]?.[action])` — absence means no grant.
+export async function getMe(userId: string) {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const grants = await RolePermissionModel.find({ role: user.role }).lean();
+  const permissions: Record<string, Record<string, DataScope>> = {};
+  for (const g of grants) {
+    permissions[g.module] = permissions[g.module] ?? {};
+    permissions[g.module][g.action] = g.dataScope;
+  }
+
+  const obj = user.toObject();
+  delete (obj as { passwordHash?: string }).passwordHash;
+  return { ...obj, permissions };
 }

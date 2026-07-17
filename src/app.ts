@@ -29,6 +29,7 @@ import reportsRoutes from './modules/reports/reports.routes';
 import exportRoutes from './modules/import-export/export.routes';
 import importRoutes from './modules/import-export/import.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import searchRoutes from './modules/search/search.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -75,6 +76,7 @@ export function createApp(): Application {
   app.use('/api/v1', exportRoutes);
   app.use('/api/v1', importRoutes);
   app.use('/api/v1', auditRoutes);
+  app.use('/api/v1', searchRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

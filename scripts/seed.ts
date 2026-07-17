@@ -379,7 +379,7 @@ const NOTIFICATION_TEMPLATES: TemplateRow[] = [
 
   { triggerKey: 'SLA_BREACHED', channel: 'IN_APP', bodyTemplate: 'SLA breached for service request {{number}}.', variables: ['serviceRequestId', 'number', 'dueAt'] },
 
-  { triggerKey: 'PASSWORD_RESET', channel: 'EMAIL', subjectTemplate: 'Reset Your CityCalls Password', bodyTemplate: '<p>Use this link to reset your password: {{token}}</p>', variables: ['token', 'userId'] },
+  { triggerKey: 'PASSWORD_RESET', channel: 'EMAIL', subjectTemplate: 'Reset Your CityCalls Password', bodyTemplate: '<p>Click the link below to reset your password:</p><p><a href="{{resetUrl}}">{{resetUrl}}</a></p>', variables: ['token', 'userId', 'resetUrl'] },
 
   { triggerKey: 'OTP_LOGIN', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls OTP is {{otp}}. Valid for 5 minutes.', variables: ['otp'] },
 

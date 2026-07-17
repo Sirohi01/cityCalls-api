@@ -89,6 +89,16 @@ export async function passwordResetHandler(req: AuthenticatedRequest, res: Respo
   }
 }
 
+export async function meHandler(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const me = await authService.getMe(req.user.sub);
+    sendSuccess(res, me, 'Current user fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listSessionsHandler(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) throw new UnauthorizedError();

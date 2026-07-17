@@ -7,6 +7,7 @@ import {
   otpVerifyHandler,
   passwordResetRequestHandler,
   passwordResetHandler,
+  meHandler,
   listSessionsHandler,
   revokeSessionHandler,
   revokeAllSessionsHandler,
@@ -35,6 +36,8 @@ router.post('/otp/verify', otpRateLimit, validate(otpVerifySchema), otpVerifyHan
 
 router.post('/password/reset-request', authRateLimit, validate(passwordResetRequestSchema), passwordResetRequestHandler);
 router.post('/password/reset', authRateLimit, validate(passwordResetSchema), passwordResetHandler);
+
+router.get('/me', authMiddleware, meHandler);
 
 router.get('/sessions', authMiddleware, listSessionsHandler);
 router.delete('/sessions/:id', authMiddleware, revokeSessionHandler);
