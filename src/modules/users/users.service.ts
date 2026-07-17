@@ -1,9 +1,40 @@
 import { UserModel } from './users.model';
+import { RolePermissionModel } from '../config/rolePermissions.model';
 import { NotFoundError, ConflictError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { hashPassword } from '../auth/auth.service';
 import { SessionModel } from '../auth/sessions.model';
-import { Role, UserStatus } from './users.types';
+import { ROLES, Role, UserStatus } from './users.types';
+
+function humanizeRole(role: Role): string {
+  return role
+    .toLowerCase()
+    .split('_')
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// Roles themselves are a fixed enum (users.types.ts), not a DB collection —
+// this lists that enum with each role's real permission grants aggregated
+// from RolePermissionModel (the actual RBAC seed), rather than a hardcoded
+// permission list that could drift from what's actually enforced.
+export async function listRoles() {
+  const grants = await RolePermissionModel.find().lean();
+  const permissionsByRole = new Map<string, string[]>();
+  for (const g of grants) {
+    const key = `${g.module}.${g.action}`;
+    const list = permissionsByRole.get(g.role) ?? [];
+    list.push(key);
+    permissionsByRole.set(g.role, list);
+  }
+
+  return ROLES.map((role) => ({
+    id: role,
+    name: humanizeRole(role),
+    description: '',
+    permissions: permissionsByRole.get(role) ?? [],
+  }));
+}
 
 interface ListParams {
   page: number;

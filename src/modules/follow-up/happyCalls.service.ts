@@ -1,4 +1,5 @@
 import { HappyCallModel } from './happyCalls.model';
+import { ReopenRecordModel } from './reopenRecords.model';
 import { ServiceRequestModel } from '../service-requests/serviceRequests.model';
 import { updateStatus } from '../service-requests/serviceRequests.service';
 import { NotFoundError, ConflictError } from '../../lib/errors';
@@ -7,6 +8,54 @@ import { logActivity } from '../../lib/auditLog';
 import { trigger } from '../../lib/notifications';
 import { UserModel } from '../users/users.model';
 import { AccessTokenPayload } from '../../lib/jwt';
+
+interface ReopenRequestListItem {
+  id: string;
+  originalServiceRequestId: string;
+  requestNumber?: string;
+  customerName: string;
+  reason: string;
+  status: 'COMPLETED'; // a reopen is applied immediately (serviceRequests.service.ts's reopenServiceRequest) —
+  // there is no pending-approval state in this system's workflow, unlike the fields' original mock data implied.
+  reopenedAt: string;
+}
+
+// Cross-cutting admin view over every reopen, across all service requests —
+// distinct from GET /service-requests/{id}/reopen-history, which is scoped
+// to one request's own chain.
+export async function listAllReopenRequests(params: { page: number; limit: number }): Promise<{
+  items: ReopenRequestListItem[];
+  meta: ReturnType<typeof buildPaginationMeta>;
+}> {
+  const skip = (params.page - 1) * params.limit;
+  const [records, total] = await Promise.all([
+    ReopenRecordModel.find()
+      .sort({ reopenedAt: -1 })
+      .skip(skip)
+      .limit(params.limit)
+      .populate({
+        path: 'originalServiceRequestId',
+        select: 'number customerId',
+        populate: { path: 'customerId', select: 'name' },
+      }),
+    ReopenRecordModel.countDocuments(),
+  ]);
+
+  const items: ReopenRequestListItem[] = records.map((r) => {
+    const sr = r.originalServiceRequestId as unknown as { _id: { toString(): string }; number?: string; customerId?: { name?: string } };
+    return {
+      id: r._id.toString(),
+      originalServiceRequestId: sr?._id?.toString() ?? r.originalServiceRequestId.toString(),
+      requestNumber: sr?.number,
+      customerName: sr?.customerId?.name ?? 'Unknown',
+      reason: r.reason,
+      status: 'COMPLETED',
+      reopenedAt: r.reopenedAt.toISOString(),
+    };
+  });
+
+  return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
+}
 
 const MAX_UNREACHABLE_RETRIES = 2; // docs/06-complete-workflow-document.md Stage 10: "2 retries over 5 days before giving up"
 

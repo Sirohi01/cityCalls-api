@@ -15,20 +15,8 @@ export async function listServicesHandler(req: ScopedRequest, res: Response, nex
 
 export async function listBrandsHandler(_req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    // Return dummy brands or real ones if BrandModel exists
-    const mockBrands = [
-      { id: 'BR-001', name: 'LG', category: 'Appliances', totalModels: 45, status: 'Active' },
-      { id: 'BR-002', name: 'Samsung', category: 'Appliances', totalModels: 38, status: 'Active' },
-      { id: 'BR-003', name: 'Whirlpool', category: 'Appliances', totalModels: 22, status: 'Inactive' },
-    ];
-
-    res.status(200).json({
-      success: true,
-      message: 'Brands retrieved',
-      data: mockBrands,
-      meta: null,
-      errors: null,
-    });
+    const brands = await catalogService.listBrands();
+    sendSuccess(res, brands, 'Brands retrieved');
   } catch (error) {
     next(error);
   }

@@ -50,12 +50,8 @@ export async function updateUserHandler(req: ScopedRequest, res: Response, next:
 
 export async function listRolesHandler(_req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const mockRoles = [
-      { id: 'ROLE-01', name: 'Super Admin', description: 'Full access', permissions: ['*'] },
-      { id: 'ROLE-02', name: 'Technician', description: 'Field worker', permissions: ['view_tasks', 'update_tasks'] },
-      { id: 'ROLE-03', name: 'Dispatcher', description: 'Assigns tasks', permissions: ['view_tasks', 'assign_tasks'] },
-    ];
-    sendSuccess(res, mockRoles, 'Roles fetched successfully');
+    const roles = await userService.listRoles();
+    sendSuccess(res, roles, 'Roles fetched successfully');
   } catch (err) {
     next(err);
   }

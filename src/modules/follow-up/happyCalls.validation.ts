@@ -22,3 +22,8 @@ export const listHappyCallsQuerySchema = z.object({
   status: z.enum(HAPPY_CALL_STATUSES).optional(),
   assignedTo: z.string().optional(),
 });
+
+export const listReopenRequestsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});

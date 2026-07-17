@@ -1,7 +1,21 @@
 import { ServiceModel } from './catalog.model';
 import { BranchModel } from '../organization/organization.model';
+import { MasterModel } from '../config/master.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
+
+// Brands ride on the generic Masters engine (masterType: 'BRAND'), same as
+// every other master list — this just gives the admin UI's brand-management
+// screen a friendlier response shape than the raw generic /masters/BRAND one.
+export async function listBrands() {
+  const brands = await MasterModel.find({ masterType: 'BRAND' }).sort({ sortOrder: 1, label: 1 }).lean();
+  return brands.map((b) => ({
+    id: b._id.toString(),
+    key: b.key,
+    name: b.label,
+    status: b.active ? 'Active' : 'Inactive',
+  }));
+}
 
 interface ListParams {
   page: number;
