@@ -12,4 +12,6 @@ router.get('/happy-calls/:id', authMiddleware, requirePermission('happyCalls', '
 router.patch('/happy-calls/:id/outcome', authMiddleware, requirePermission('happyCalls', 'edit'), validate(recordHappyCallOutcomeSchema), ctrl.recordOutcomeHandler);
 router.patch('/happy-calls/:id/reassign', authMiddleware, requirePermission('happyCalls', 'edit'), validate(reassignHappyCallSchema), ctrl.reassignHappyCallHandler);
 
+router.get('/reopen-requests', authMiddleware, requirePermission('happyCalls', 'view'), ctrl.listReopenRequestsHandler);
+
 export default router;

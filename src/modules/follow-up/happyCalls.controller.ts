@@ -13,6 +13,25 @@ export async function listHappyCallsHandler(req: ScopedRequest, res: Response, n
   }
 }
 
+export async function listReopenRequestsHandler(_req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const mockReopens = [
+      { id: 'RR-001', requestNumber: 'SR-2023-089', customerName: 'Rajesh Kumar', reason: 'Issue reoccurred after 2 days', status: 'PENDING', requestedAt: new Date().toISOString() },
+      { id: 'RR-002', requestNumber: 'SR-2023-042', customerName: 'Sneha Gupta', reason: 'Technician left without testing', status: 'APPROVED', requestedAt: new Date(Date.now() - 86400000).toISOString() },
+    ];
+    
+    res.status(200).json({
+      success: true,
+      message: 'Reopen requests retrieved',
+      data: mockReopens,
+      meta: null,
+      errors: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getHappyCallHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const happyCall = await happyCallsService.getHappyCall(paramAsString(req.params.id));

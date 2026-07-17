@@ -12,4 +12,6 @@ router.get('/users/:id', authMiddleware, requirePermission('users', 'view'), ctr
 router.post('/users', authMiddleware, requirePermission('users', 'create'), validate(createUserSchema), ctrl.createUserHandler);
 router.patch('/users/:id', authMiddleware, requirePermission('users', 'edit'), validate(updateUserSchema), ctrl.updateUserHandler);
 
+router.get('/roles', authMiddleware, requirePermission('users', 'view'), ctrl.listRolesHandler);
+
 export default router;

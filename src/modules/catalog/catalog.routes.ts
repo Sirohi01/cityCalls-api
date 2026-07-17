@@ -13,4 +13,6 @@ router.get('/services/:id/coverage', authMiddleware, requirePermission('catalog'
 router.post('/services', authMiddleware, requirePermission('catalog', 'create'), validate(createServiceSchema), ctrl.createServiceHandler);
 router.patch('/services/:id', authMiddleware, requirePermission('catalog', 'edit'), validate(updateServiceSchema), ctrl.updateServiceHandler);
 
+router.get('/brands', authMiddleware, requirePermission('catalog', 'view'), ctrl.listBrandsHandler);
+
 export default router;
