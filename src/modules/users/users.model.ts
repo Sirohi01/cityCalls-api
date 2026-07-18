@@ -13,6 +13,11 @@ export interface IUser extends Document {
   teamId?: Types.ObjectId;
   vendorId?: Types.ObjectId;
   lastLoginAt?: Date;
+  // Unset on the bootstrap Super Admin created directly by the seed script
+  // (not through this model's create flow) — shown as "System (seed)" on
+  // the frontend, not backfilled.
+  createdBy?: Types.ObjectId;
+  updatedBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +35,8 @@ const userSchema = new Schema<IUser>(
     teamId: { type: Schema.Types.ObjectId, ref: 'Team' },
     vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
     lastLoginAt: { type: Date },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );
