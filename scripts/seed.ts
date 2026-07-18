@@ -6,13 +6,9 @@ import { StatusTransitionModel, EntityType } from '../src/modules/config/statusT
 import { NotificationTemplateModel, NotificationChannel } from '../src/modules/notifications/notificationTemplates.model';
 import { MasterModel } from '../src/modules/config/master.model';
 import { MASTER_SEED_DATA } from './seedMastersData';
+import { BranchModel, SubBranchModel } from '../src/modules/organization/organization.model';
+import { BRANCH_SEED_DATA } from './seedOrganizationData';
 import { Role, DataScope } from '../src/modules/users/users.types';
-
-// Role-permission seed covering every module built through Phase 1/2, following the
-// matrix in docs/05-user-roles-and-permissions.md §4. Expand this table module-by-module
-// as each new module is implemented, per docs/manish/03-database-model-implementation-plan.md §3 —
-// roles with no row for a given module simply have no access to it, which is correct
-// wherever that role has no legitimate business reason to touch that module.
 interface PermissionRow {
   role: Role;
   module: string;
@@ -31,9 +27,6 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
 }
 
 const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai', 'reports'];
-// export/import are checked dynamically against each entity's own module
-// (see src/modules/import-export/dynamicPermission.ts) — only the five
-// modules actually wired into EXPORT_REGISTRY/IMPORT_REGISTRY need rows.
 const EXPORTABLE_MODULES = ['customers', 'leads', 'serviceRequests', 'calls', 'finance'];
 const IMPORTABLE_MODULES = ['customers', 'leads'];
 const CRUD = ['view', 'create', 'edit'];
@@ -426,6 +419,28 @@ async function seed(): Promise<void> {
       { label: m.label, sortOrder: m.sortOrder ?? 0, ...(m.meta ? { meta: m.meta } : {}), active: true },
       { upsert: true }
     );
+  }
+
+  const branchCount = BRANCH_SEED_DATA.length;
+  const subBranchCount = BRANCH_SEED_DATA.reduce((sum, b) => sum + b.subBranches.length, 0);
+  console.log(`[seed] upserting ${branchCount} branches and ${subBranchCount} sub-branches...`);
+  for (const b of BRANCH_SEED_DATA) {
+    const branch = await BranchModel.findOneAndUpdate(
+      { code: b.code },
+      {
+        name: b.name,
+        coverage: { pinCodes: b.subBranches.map((sb) => sb.pinCodes).flat(), cities: b.cities, states: b.states },
+        active: true,
+      },
+      { upsert: true, new: true }
+    );
+    for (const sb of b.subBranches) {
+      await SubBranchModel.findOneAndUpdate(
+        { code: sb.code },
+        { branchId: branch._id, name: sb.name, coverage: { pinCodes: sb.pinCodes }, active: true },
+        { upsert: true }
+      );
+    }
   }
 
   const existingSuperAdmin = await UserModel.findOne({ role: 'SUPER_ADMIN' });
