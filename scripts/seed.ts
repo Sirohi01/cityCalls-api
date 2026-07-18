@@ -4,6 +4,8 @@ import { hashPassword } from '../src/modules/auth/auth.service';
 import { RolePermissionModel } from '../src/modules/config/rolePermissions.model';
 import { StatusTransitionModel, EntityType } from '../src/modules/config/statusTransition.model';
 import { NotificationTemplateModel, NotificationChannel } from '../src/modules/notifications/notificationTemplates.model';
+import { MasterModel } from '../src/modules/config/master.model';
+import { MASTER_SEED_DATA } from './seedMastersData';
 import { Role, DataScope } from '../src/modules/users/users.types';
 
 // Role-permission seed covering every module built through Phase 1/2, following the
@@ -413,6 +415,15 @@ async function seed(): Promise<void> {
     await NotificationTemplateModel.findOneAndUpdate(
       { triggerKey: t.triggerKey, channel: t.channel },
       { subjectTemplate: t.subjectTemplate, bodyTemplate: t.bodyTemplate, variables: t.variables },
+      { upsert: true }
+    );
+  }
+
+  console.log(`[seed] upserting ${MASTER_SEED_DATA.length} master-data entries...`);
+  for (const m of MASTER_SEED_DATA) {
+    await MasterModel.findOneAndUpdate(
+      { masterType: m.masterType, key: m.key },
+      { label: m.label, sortOrder: m.sortOrder ?? 0, ...(m.meta ? { meta: m.meta } : {}), active: true },
       { upsert: true }
     );
   }
