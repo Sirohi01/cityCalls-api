@@ -12,7 +12,15 @@ export const createVendorSchema = z.object({
   skills: z.array(z.string()).default([]),
   gst: z.string().optional(),
   pan: z.string().optional(),
+  // Previously missing entirely from validation despite being real fields on
+  // IVendor/vendorSchema (vendors.model.ts) — silently stripped by validate().
+  bankDetails: z
+    .object({ accountNumber: z.string(), ifsc: z.string(), accountHolderName: z.string() })
+    .optional(),
+  agreement: z.object({ url: z.string(), expiryDate: z.coerce.date() }).optional(),
   commissionModel: z.enum(['FIXED', 'SERVICE_WISE']).default('FIXED'),
+  commissionRate: z.number().optional(),
+  active: z.boolean().optional(),
 });
 
 export const updateVendorSchema = createVendorSchema.partial();

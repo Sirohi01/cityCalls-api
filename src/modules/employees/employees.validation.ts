@@ -8,6 +8,7 @@ export const createEmployeeSchema = z.object({
   skills: z.array(z.string()).default([]),
   certifications: z.array(z.string()).default([]),
   dailyCapacity: z.number().default(5),
+  active: z.boolean().optional(),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

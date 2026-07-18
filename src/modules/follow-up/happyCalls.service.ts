@@ -73,7 +73,12 @@ export async function listHappyCalls(params: { page: number; limit: number; stat
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
-    HappyCallModel.find(filter).skip(skip).limit(params.limit).sort({ createdAt: -1 }),
+    HappyCallModel.find(filter)
+      .populate('serviceRequestId', 'number')
+      .populate('assignedTo', 'name')
+      .skip(skip)
+      .limit(params.limit)
+      .sort({ createdAt: -1 }),
     HappyCallModel.countDocuments(filter),
   ]);
   return { items, meta: buildPaginationMeta(params.page, params.limit, total) };

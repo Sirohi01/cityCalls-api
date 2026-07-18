@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { requirePermission } from '../../middleware/permission.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { createMasterSchema, updateMasterSchema, listMastersQuerySchema, masterTypeParamSchema } from './config.validation';
+import { createMasterSchema, updateMasterSchema, listMastersQuerySchema, masterTypeParamSchema, masterIdParamSchema } from './config.validation';
 import * as ctrl from './config.controller';
 
 // authMiddleware is applied per-route rather than via router.use() — see the comment
@@ -29,7 +29,7 @@ router.patch(
   '/masters/:masterType/:id',
   authMiddleware,
   requirePermission('config', 'manageSettings'),
-  validate(masterTypeParamSchema, 'params'),
+  validate(masterIdParamSchema, 'params'),
   validate(updateMasterSchema),
   ctrl.updateMasterHandler
 );
@@ -37,7 +37,7 @@ router.delete(
   '/masters/:masterType/:id',
   authMiddleware,
   requirePermission('config', 'manageSettings'),
-  validate(masterTypeParamSchema, 'params'),
+  validate(masterIdParamSchema, 'params'),
   ctrl.deleteMasterHandler
 );
 

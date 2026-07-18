@@ -7,6 +7,13 @@ export const workingHoursSchema = z.object({
   closed: z.boolean().default(false),
 });
 
+const registeredAddressSchema = z.object({
+  line1: z.string().min(1),
+  city: z.string().min(1),
+  state: z.string().min(1),
+  pinCode: z.string().min(4),
+});
+
 export const createBranchSchema = z.object({
   name: z.string().min(2),
   code: z.string().min(2).max(10),
@@ -20,6 +27,10 @@ export const createBranchSchema = z.object({
   serviceCategoryIds: z.array(z.string()).default([]),
   workingHours: z.array(workingHoursSchema).default([]),
   managerId: z.string().optional(),
+  registeredAddress: registeredAddressSchema.optional(),
+  gstin: z.string().optional(),
+  holidays: z.array(z.coerce.date()).default([]),
+  active: z.boolean().optional(),
 });
 
 export const updateBranchSchema = createBranchSchema.partial();
@@ -30,6 +41,7 @@ export const createSubBranchSchema = z.object({
   code: z.string().min(2).max(10),
   coverage: z.object({ pinCodes: z.array(z.string()).default([]) }).default({ pinCodes: [] }),
   managerId: z.string().optional(),
+  active: z.boolean().optional(),
 });
 
 export const updateSubBranchSchema = createSubBranchSchema.partial();

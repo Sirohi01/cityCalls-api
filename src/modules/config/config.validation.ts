@@ -5,6 +5,13 @@ export const masterTypeParamSchema = z.object({
   masterType: z.enum(MASTER_TYPES),
 });
 
+// validate() replaces req.params entirely with the parsed result — a schema
+// missing `id` would silently strip it for the /:masterType/:id routes.
+export const masterIdParamSchema = z.object({
+  masterType: z.enum(MASTER_TYPES),
+  id: z.string().min(1),
+});
+
 export const createMasterSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
