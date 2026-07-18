@@ -1,6 +1,9 @@
 import { EmployeeModel } from './employees.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
+import { applyScopeFilter } from '../../lib/scopeFilter';
+import { DataScope } from '../users/users.types';
+import { AccessTokenPayload } from '../../lib/jwt';
 
 interface ListParams {
   page: number;
@@ -10,11 +13,12 @@ interface ListParams {
   active?: boolean;
 }
 
-export async function listEmployees(params: ListParams) {
-  const filter: Record<string, unknown> = {};
+export async function listEmployees(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
+  let filter: Record<string, unknown> = {};
   if (params.branchId) filter.branchId = params.branchId;
   if (params.skill) filter.skills = params.skill;
   if (params.active !== undefined) filter.active = params.active;
+  filter = applyScopeFilter(filter, scope, user);
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

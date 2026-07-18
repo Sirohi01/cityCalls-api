@@ -8,7 +8,8 @@ import { ServiceRequestStatus } from './serviceRequests.model';
 
 export async function listServiceRequestsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await srService.listServiceRequests(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await srService.listServiceRequests(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Service requests fetched successfully', meta);
   } catch (err) {
     next(err);

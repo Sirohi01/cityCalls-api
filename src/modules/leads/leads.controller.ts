@@ -6,7 +6,8 @@ import { UnauthorizedError } from '../../lib/errors';
 
 export async function listLeadsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await leadService.listLeads(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await leadService.listLeads(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Leads fetched successfully', meta);
   } catch (err) {
     next(err);

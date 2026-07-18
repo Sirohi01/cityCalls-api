@@ -7,6 +7,8 @@ import { getNextNumber } from '../../lib/numbering';
 import { assertValidTransition } from '../../lib/statusEngine';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { applyScopeFilter } from '../../lib/scopeFilter';
+import { DataScope } from '../users/users.types';
 
 interface ListParams {
   page: number;
@@ -18,8 +20,8 @@ interface ListParams {
   q?: string;
 }
 
-export async function listLeads(params: ListParams) {
-  const filter: Record<string, unknown> = {};
+export async function listLeads(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
+  let filter: Record<string, unknown> = {};
   if (params.stage) filter.stage = params.stage;
   if (params.ownerId) filter.ownerId = params.ownerId;
   if (params.source) filter.source = params.source;
@@ -31,6 +33,7 @@ export async function listLeads(params: ListParams) {
       { contactMobile: { $regex: params.q, $options: 'i' } },
     ];
   }
+  filter = applyScopeFilter(filter, scope, user, 'ownerId');
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

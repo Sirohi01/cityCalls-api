@@ -2,10 +2,12 @@ import { Response, NextFunction } from 'express';
 import * as employeeService from './employees.service';
 import { sendSuccess, paramAsString } from '../../lib/apiResponse';
 import { ScopedRequest } from '../../middleware/permission.middleware';
+import { UnauthorizedError } from '../../lib/errors';
 
 export async function listEmployeesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await employeeService.listEmployees(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await employeeService.listEmployees(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Employees fetched successfully', meta);
   } catch (err) {
     next(err);

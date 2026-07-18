@@ -21,7 +21,8 @@ export async function createEstimateHandler(req: ScopedRequest, res: Response, n
 
 export async function listEstimatesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await estimatesService.listEstimates(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await estimatesService.listEstimates(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Estimates fetched successfully', meta);
   } catch (err) {
     next(err);
@@ -81,7 +82,8 @@ export async function convertEstimateHandler(req: ScopedRequest, res: Response, 
 // --- Proforma Invoices ---
 export async function listProformaInvoicesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await proformaService.listProformaInvoices(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await proformaService.listProformaInvoices(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Proforma invoices fetched successfully', meta);
   } catch (err) {
     next(err);
@@ -141,7 +143,8 @@ export async function createDirectInvoiceHandler(req: ScopedRequest, res: Respon
 
 export async function listInvoicesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await invoicesService.listInvoices(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await invoicesService.listInvoices(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Invoices fetched successfully', meta);
   } catch (err) {
     next(err);

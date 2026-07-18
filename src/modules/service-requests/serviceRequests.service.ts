@@ -14,6 +14,7 @@ import { logActivity } from '../../lib/auditLog';
 import { trigger } from '../../lib/notifications';
 import { emitServiceRequestStatusChanged, emitServiceRequestAssigned, emitTechnicianLocationUpdated } from '../../realtime';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { DataScope } from '../users/users.types';
 import { CustomerModel, CustomerProductModel } from '../customers/customers.model';
 import { ReopenRecordModel } from '../follow-up/reopenRecords.model';
 import { OtpModel } from '../auth/otp.model';
@@ -43,7 +44,7 @@ interface ListParams {
   q?: string;
 }
 
-export async function listServiceRequests(params: ListParams) {
+export async function listServiceRequests(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
   if (params.status_in) filter.status = { $in: params.status_in.split(',') };
@@ -52,6 +53,8 @@ export async function listServiceRequests(params: ListParams) {
   if (params.priority) filter.priority = params.priority;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.q) filter.number = { $regex: params.q, $options: 'i' };
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
+  if (scope === 'SUB_BRANCH' && user.subBranchId) filter.subBranchId = user.subBranchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -111,11 +114,6 @@ interface StatusChangeMeta {
   reason?: string;
   geo?: { lat: number; lng: number };
 }
-
-// Single entry point every status-changing action goes through — per
-// docs/manish/06-workflow-engine-plan.md §6, this is where the transition check,
-// history write, notification trigger, and real-time emit all happen together,
-// so no code path can change a status without its required side effects.
 export async function updateStatus(id: string, toStatus: ServiceRequestStatus, actor: AccessTokenPayload, meta: StatusChangeMeta = {}) {
   const sr = await ServiceRequestModel.findById(id);
   if (!sr) throw new NotFoundError('Service request not found');

@@ -10,6 +10,7 @@ import { generateDocumentPdf } from '../../lib/pdfGenerator';
 import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { DataScope } from '../users/users.types';
 
 interface LineItemInput {
   description: string;
@@ -73,11 +74,18 @@ export async function createEstimate(input: CreateEstimateInput, actor: AccessTo
   return estimate;
 }
 
-export async function listEstimates(params: { page: number; limit: number; status?: string; customerId?: string; serviceRequestId?: string }) {
+export async function listEstimates(
+  params: { page: number; limit: number; status?: string; customerId?: string; serviceRequestId?: string },
+  scope: DataScope,
+  user: AccessTokenPayload
+) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
+  // Only BRANCH is enforced — OWN (Employee/Technician drafting their own
+  // estimates) has no createdBy field on this model to filter by yet.
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

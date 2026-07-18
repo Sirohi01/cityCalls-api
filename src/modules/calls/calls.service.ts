@@ -2,6 +2,9 @@ import { CallModel, CallType } from './calls.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { getNextNumber } from '../../lib/numbering';
+import { applyScopeFilter } from '../../lib/scopeFilter';
+import { DataScope } from '../users/users.types';
+import { AccessTokenPayload } from '../../lib/jwt';
 
 interface ListParams {
   page: number;
@@ -13,8 +16,8 @@ interface ListParams {
   q?: string;
 }
 
-export async function listCalls(params: ListParams) {
-  const filter: Record<string, unknown> = {};
+export async function listCalls(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
+  let filter: Record<string, unknown> = {};
   if (params.callType) filter.callType = params.callType;
   if (params.direction) filter.direction = params.direction;
   if (params.customerId) filter.customerId = params.customerId;
@@ -26,6 +29,7 @@ export async function listCalls(params: ListParams) {
       { customerName: { $regex: params.q, $options: 'i' } },
     ];
   }
+  filter = applyScopeFilter(filter, scope, user);
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

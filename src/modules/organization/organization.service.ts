@@ -1,6 +1,8 @@
 import { BranchModel, SubBranchModel, TeamModel } from './organization.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
+import { DataScope } from '../users/users.types';
+import { AccessTokenPayload } from '../../lib/jwt';
 
 interface ListParams {
   page: number;
@@ -9,10 +11,15 @@ interface ListParams {
   q?: string;
 }
 
-export async function listBranches(params: ListParams) {
+// Branch/SubBranch/Team scoping is bespoke per entity (not the generic
+// applyScopeFilter helper) because "my own branch/sub-branch" means filtering
+// by _id here, not by a branchId/subBranchId field the way it does on
+// operational records like Leads or Calls.
+export async function listBranches(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (params.active !== undefined) filter.active = params.active;
   if (params.q) filter.name = { $regex: params.q, $options: 'i' };
+  if ((scope === 'BRANCH' || scope === 'SUB_BRANCH') && user.branchId) filter._id = user.branchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -38,10 +45,15 @@ export async function updateBranch(id: string, data: Record<string, unknown>) {
   return branch;
 }
 
-export async function listSubBranches(branchId: string | undefined, params: ListParams) {
+export async function listSubBranches(branchId: string | undefined, params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (branchId) filter.branchId = branchId;
   if (params.active !== undefined) filter.active = params.active;
+  // A scoped caller's own branch/sub-branch always wins over the client-
+  // supplied branchId filter above — never let a narrower-scoped user widen
+  // their view by passing a different branchId.
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
+  if (scope === 'SUB_BRANCH' && user.subBranchId) filter._id = user.subBranchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -61,10 +73,12 @@ export async function updateSubBranch(id: string, data: Record<string, unknown>)
   return subBranch;
 }
 
-export async function listTeams(branchId: string | undefined, params: ListParams) {
+export async function listTeams(branchId: string | undefined, params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (branchId) filter.branchId = branchId;
   if (params.active !== undefined) filter.active = params.active;
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
+  if (scope === 'SUB_BRANCH' && user.subBranchId) filter.subBranchId = user.subBranchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

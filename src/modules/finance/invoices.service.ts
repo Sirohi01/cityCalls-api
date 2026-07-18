@@ -10,6 +10,7 @@ import { generateDocumentPdf } from '../../lib/pdfGenerator';
 import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { DataScope } from '../users/users.types';
 
 export async function convertProformaToInvoice(proformaId: string, actor: AccessTokenPayload) {
   const proforma = await proformaService.assertConvertible(proformaId);
@@ -96,11 +97,16 @@ export async function createDirectInvoice(input: CreateDirectInvoiceInput, actor
   return invoice;
 }
 
-export async function listInvoices(params: { page: number; limit: number; status?: string; customerId?: string; serviceRequestId?: string }) {
+export async function listInvoices(
+  params: { page: number; limit: number; status?: string; customerId?: string; serviceRequestId?: string },
+  scope: DataScope,
+  user: AccessTokenPayload
+) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

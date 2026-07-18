@@ -2,10 +2,12 @@ import { Response, NextFunction } from 'express';
 import * as orgService from './organization.service';
 import { sendSuccess, paramAsString } from '../../lib/apiResponse';
 import { ScopedRequest } from '../../middleware/permission.middleware';
+import { UnauthorizedError } from '../../lib/errors';
 
 export async function listBranchesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await orgService.listBranches(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await orgService.listBranches(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Branches fetched successfully', meta);
   } catch (err) {
     next(err);
@@ -41,8 +43,9 @@ export async function updateBranchHandler(req: ScopedRequest, res: Response, nex
 
 export async function listSubBranchesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
     const branchId = req.query.branchId as string | undefined;
-    const { items, meta } = await orgService.listSubBranches(branchId, req.query as never);
+    const { items, meta } = await orgService.listSubBranches(branchId, req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Sub-branches fetched successfully', meta);
   } catch (err) {
     next(err);
@@ -69,8 +72,9 @@ export async function updateSubBranchHandler(req: ScopedRequest, res: Response, 
 
 export async function listTeamsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
     const branchId = req.query.branchId as string | undefined;
-    const { items, meta } = await orgService.listTeams(branchId, req.query as never);
+    const { items, meta } = await orgService.listTeams(branchId, req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Teams fetched successfully', meta);
   } catch (err) {
     next(err);

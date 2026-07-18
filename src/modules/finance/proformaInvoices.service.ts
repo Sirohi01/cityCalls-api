@@ -8,6 +8,7 @@ import { generateDocumentPdf } from '../../lib/pdfGenerator';
 import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { DataScope } from '../users/users.types';
 
 // Conversion: Lead -> Estimate -> Proforma Invoice -> Service Request -> Invoice
 // -> Payment Receipt (docs/16-pdf-and-financial-documents.md). Converting carries
@@ -47,10 +48,15 @@ export async function convertEstimateToProforma(estimateId: string, actor: Acces
   return proforma;
 }
 
-export async function listProformaInvoices(params: { page: number; limit: number; status?: string; customerId?: string }) {
+export async function listProformaInvoices(
+  params: { page: number; limit: number; status?: string; customerId?: string },
+  scope: DataScope,
+  user: AccessTokenPayload
+) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
+  if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

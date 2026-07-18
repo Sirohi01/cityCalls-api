@@ -6,7 +6,8 @@ import { UnauthorizedError } from '../../lib/errors';
 
 export async function listCallsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await callService.listCalls(req.query as never);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const { items, meta } = await callService.listCalls(req.query as never, req.scope, req.user);
     sendSuccess(res, items, 'Calls fetched successfully', meta);
   } catch (err) {
     next(err);
