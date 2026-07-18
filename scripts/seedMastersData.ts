@@ -11,14 +11,6 @@ export interface MasterSeedRow {
 function rows(masterType: MasterType, items: [string, string, Record<string, unknown>?][]): MasterSeedRow[] {
   return items.map(([key, label, meta], i) => ({ masterType, key, label, sortOrder: i, ...(meta ? { meta } : {}) }));
 }
-
-// A broad, Urban-Company-style master catalog for a home-services platform —
-// covers appliance repair, salon/spa, cleaning, and home-repair trades, since
-// docs/04-modules-and-feature-list.md doesn't pin the catalog to one vertical.
-// Keys are UPPER_SNAKE_CASE per the rest of the codebase's enum convention;
-// PRIORITY and PAYMENT_METHOD keys are deliberately kept identical to the
-// real LEAD_STAGES/PAYMENT_METHODS enums elsewhere so this list stays a
-// faithful dropdown source rather than a second, drifting vocabulary.
 export const MASTER_SEED_DATA: MasterSeedRow[] = [
   ...rows('SERVICE_CATEGORY', [
     ['AC_REPAIR_SERVICE', 'AC Repair & Service'],
@@ -270,5 +262,9 @@ export const MASTER_SEED_DATA: MasterSeedRow[] = [
     ['GATEWAY', 'Payment Gateway Link'],
     ['CHEQUE', 'Cheque'],
     ['CREDIT', 'Credit (Bill Later)'],
+  ]),
+  ...rows('CUSTOMER_TYPE', [
+    ['RESIDENTIAL', 'Residential'],
+    ['COMMERCIAL', 'Commercial'],
   ]),
 ];

@@ -423,6 +423,11 @@ async function seed(): Promise<void> {
 
   const branchCount = BRANCH_SEED_DATA.length;
   const subBranchCount = BRANCH_SEED_DATA.reduce((sum, b) => sum + b.subBranches.length, 0);
+  // Every seeded branch offers the full service catalog — without this,
+  // checkCoverage()/resolveBranch() (both match on serviceCategoryIds) can
+  // never find a branch for ANY pincode, since an unset array field never
+  // matches an $in/equality check against a real ObjectId.
+  const allServiceCategoryIds = (await MasterModel.find({ masterType: 'SERVICE_CATEGORY' }).select('_id')).map((m) => m._id);
   console.log(`[seed] upserting ${branchCount} branches and ${subBranchCount} sub-branches...`);
   for (const b of BRANCH_SEED_DATA) {
     const branch = await BranchModel.findOneAndUpdate(
@@ -430,6 +435,7 @@ async function seed(): Promise<void> {
       {
         name: b.name,
         coverage: { pinCodes: b.subBranches.map((sb) => sb.pinCodes).flat(), cities: b.cities, states: b.states },
+        serviceCategoryIds: allServiceCategoryIds,
         active: true,
       },
       { upsert: true, new: true }

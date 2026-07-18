@@ -33,7 +33,7 @@ export const IMPORT_REGISTRY: Record<string, ImportEntityDef> = {
   customers: {
     schema: createCustomerSchema,
     transformRow: (row) => ({
-      customerType: optional(row.customerType) ?? 'INDIVIDUAL',
+      customerType: optional(row.customerType) ?? 'RESIDENTIAL',
       name: row.name,
       businessName: optional(row.businessName),
       gstin: optional(row.gstin),

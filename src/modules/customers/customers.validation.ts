@@ -18,8 +18,17 @@ const contactSchema = z.object({
   isPrimary: z.boolean().default(false),
 });
 
+const CONSENT_STATE_VALUES = ['GRANTED', 'REVOKED', 'NOT_ASKED'] as const;
+const consentInputSchema = z.object({
+  whatsapp: z.enum(CONSENT_STATE_VALUES).optional(),
+  email: z.enum(CONSENT_STATE_VALUES).optional(),
+  sms: z.enum(CONSENT_STATE_VALUES).optional(),
+});
+
 export const createCustomerSchema = z.object({
-  customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
+  // Master-driven (masterType CUSTOMER_TYPE) — validated against real key
+  // values by the Masters admin screen, not a fixed enum here.
+  customerType: z.string().min(1).default('RESIDENTIAL'),
   name: z.string().min(2),
   businessName: z.string().optional(),
   gstin: z.string().optional(),
@@ -27,6 +36,11 @@ export const createCustomerSchema = z.object({
   contacts: z.array(contactSchema).min(1, 'At least one contact is required'),
   addresses: z.array(addressSchema).default([]),
   tags: z.array(z.string()).default([]),
+  consent: consentInputSchema.optional(),
+  // A full address isn't always known at creation time (e.g. the call-intake
+  // waitlist path only has a pincode, not a street address) — notes lets
+  // that context be recorded without inventing a fake address.line1.
+  notes: z.array(z.string()).optional(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();
@@ -51,7 +65,8 @@ export const updateConsentSchema = z.object({
 export const listCustomersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
+  customerType: z.string().optional(),
   blacklisted: z.coerce.boolean().optional(),
+  tag: z.string().optional(),
   q: z.string().optional(),
 });

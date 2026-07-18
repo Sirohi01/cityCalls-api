@@ -118,7 +118,7 @@ interface AddressSnapshotInput {
 
 interface ConvertInput {
   convertTo: 'CUSTOMER' | 'SERVICE_REQUEST';
-  customerType: 'INDIVIDUAL' | 'BUSINESS';
+  customerType: string;
   name?: string;
   addresses: AddressSnapshotInput[];
   serviceId?: string;

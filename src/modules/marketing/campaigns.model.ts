@@ -12,7 +12,7 @@ export interface ICampaign extends Document {
   name: string;
   channel: 'WHATSAPP' | 'EMAIL';
   templateId: Types.ObjectId;
-  audienceFilter: { tags?: string[]; segments?: string[]; customerType?: 'INDIVIDUAL' | 'BUSINESS' };
+  audienceFilter: { tags?: string[]; segments?: string[]; customerType?: string };
   scheduledAt?: Date;
   status: CampaignStatus;
   stats: { sent: number; delivered: number; read: number; failed: number };
@@ -29,7 +29,7 @@ const campaignSchema = new Schema<ICampaign>(
     audienceFilter: {
       tags: { type: [String], default: [] },
       segments: { type: [String], default: [] },
-      customerType: { type: String, enum: ['INDIVIDUAL', 'BUSINESS'] },
+      customerType: { type: String },
     },
     scheduledAt: { type: Date },
     status: { type: String, enum: CAMPAIGN_STATUSES, default: 'DRAFT' },

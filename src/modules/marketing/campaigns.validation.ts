@@ -9,7 +9,7 @@ export const createCampaignSchema = z.object({
     .object({
       tags: z.array(z.string()).default([]),
       segments: z.array(z.string()).default([]),
-      customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
+      customerType: z.string().optional(),
     })
     .default({ tags: [], segments: [] }),
   scheduledAt: z.coerce.date().optional(),

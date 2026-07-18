@@ -18,6 +18,7 @@ export const MASTER_TYPES = [
   'CALL_TYPE',
   'APPOINTMENT_SLOT',
   'PAYMENT_METHOD',
+  'CUSTOMER_TYPE',
 ] as const;
 
 export type MasterType = (typeof MASTER_TYPES)[number];

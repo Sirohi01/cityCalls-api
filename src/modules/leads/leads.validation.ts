@@ -46,7 +46,7 @@ const addressSnapshotSchema = z.object({
 export const convertLeadSchema = z
   .object({
     convertTo: z.enum(['CUSTOMER', 'SERVICE_REQUEST']),
-    customerType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
+    customerType: z.string().default('RESIDENTIAL'),
     name: z.string().min(2).optional(),
     addresses: z.array(addressSnapshotSchema).default([]),
     // Required only when convertTo === 'SERVICE_REQUEST' — a Lead doesn't carry

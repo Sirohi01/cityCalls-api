@@ -12,7 +12,7 @@ interface CreateCampaignInput {
   name: string;
   channel: 'WHATSAPP' | 'EMAIL';
   templateId: string;
-  audienceFilter: { tags?: string[]; segments?: string[]; customerType?: 'INDIVIDUAL' | 'BUSINESS' };
+  audienceFilter: { tags?: string[]; segments?: string[]; customerType?: string };
   scheduledAt?: Date;
 }
 

@@ -9,6 +9,7 @@ interface ListParams {
   limit: number;
   customerType?: 'INDIVIDUAL' | 'BUSINESS';
   blacklisted?: boolean;
+  tag?: string;
   q?: string;
 }
 
@@ -16,6 +17,7 @@ export async function listCustomers(params: ListParams) {
   const filter: Record<string, unknown> = {};
   if (params.customerType) filter.customerType = params.customerType;
   if (params.blacklisted !== undefined) filter.blacklisted = params.blacklisted;
+  if (params.tag) filter.tags = params.tag;
   if (params.q) {
     filter.$or = [
       { name: { $regex: params.q, $options: 'i' } },

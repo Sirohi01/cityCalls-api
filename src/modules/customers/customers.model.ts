@@ -25,7 +25,10 @@ interface IAddress extends Types.Subdocument {
 
 export interface ICustomer extends Document {
   userId?: Types.ObjectId;
-  customerType: 'INDIVIDUAL' | 'BUSINESS';
+  // Master-driven (masterType CUSTOMER_TYPE — e.g. RESIDENTIAL/COMMERCIAL),
+  // not a fixed enum, so new types can be added from the Masters screen
+  // without a schema change.
+  customerType: string;
   name: string;
   businessName?: string;
   gstin?: string;
@@ -49,7 +52,7 @@ export interface ICustomer extends Document {
 const customerSchema = new Schema<ICustomer>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User' },
-    customerType: { type: String, enum: ['INDIVIDUAL', 'BUSINESS'], default: 'INDIVIDUAL' },
+    customerType: { type: String, default: 'RESIDENTIAL' },
     name: { type: String, required: true, trim: true },
     businessName: { type: String, trim: true },
     gstin: { type: String, trim: true },
