@@ -26,6 +26,7 @@ export const createServiceSchema = z.object({
   requiredImages: z.object({ before: z.number().default(0), after: z.number().default(0) }).default({ before: 0, after: 0 }),
   mandatoryChecklist: z.array(z.string()).default([]),
   slaMinutes: z.number().default(1440),
+  active: z.boolean().optional(),
 });
 
 export const updateServiceSchema = createServiceSchema.partial();

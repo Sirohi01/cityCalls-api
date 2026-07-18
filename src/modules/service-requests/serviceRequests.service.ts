@@ -1,9 +1,11 @@
+import { Types } from 'mongoose';
 import { ServiceRequestModel, ServiceRequestStatus, AssigneeType, IServiceRequest } from './serviceRequests.model';
 import { AssignmentHistoryModel } from './assignmentHistory.model';
 import { ServiceModel } from '../catalog/catalog.model';
-import { BranchModel, IBranch } from '../organization/organization.model';
+import { BranchModel, IBranch, SubBranchModel } from '../organization/organization.model';
 import { EmployeeModel } from '../employees/employees.model';
 import { TeamModel } from '../organization/organization.model';
+import { VendorModel } from '../vendors/vendors.model';
 import { NotFoundError, ConflictError, AppError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { getNextNumber } from '../../lib/numbering';
@@ -58,16 +60,137 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
-    ServiceRequestModel.find(filter).skip(skip).limit(params.limit).sort({ createdAt: -1 }),
+    ServiceRequestModel.find(filter)
+      .populate<{ customerId: { _id: Types.ObjectId; name: string; contacts: { mobile: string; isPrimary: boolean }[] } | null }>('customerId', 'name contacts')
+      .skip(skip)
+      .limit(params.limit)
+      .sort({ createdAt: -1 }),
     ServiceRequestModel.countDocuments(filter),
   ]);
-  return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
+
+  const nameByAssignee = await resolveAssigneeNames(
+    items.filter((i): i is typeof i & { assigneeType: AssigneeType; assigneeId: Types.ObjectId } => !!i.assigneeType && !!i.assigneeId)
+  );
+
+  const shaped = items.map((item) => {
+    const obj = item.toObject();
+    const customer = obj.customerId as unknown as { _id: Types.ObjectId; name: string; contacts: { mobile: string; isPrimary: boolean }[] } | null;
+    return {
+      ...obj,
+      customerId: customer?._id,
+      customer: customer ? { name: customer.name, mobile: customer.contacts.find((c) => c.isPrimary)?.mobile ?? customer.contacts[0]?.mobile } : null,
+      assignee:
+        item.assigneeType && item.assigneeId
+          ? { type: item.assigneeType, name: nameByAssignee.get(`${item.assigneeType}:${item.assigneeId.toString()}`) ?? null }
+          : null,
+    };
+  });
+
+  return { items: shaped, meta: buildPaginationMeta(params.page, params.limit, total) };
+}
+
+// Resolves display names for whatever assigneeId values currently point at —
+// the model each refers to depends entirely on assigneeType, so there's no
+// single populate() that covers all six ASSIGNEE_TYPES. Batches by type
+// (one findMany per type present) rather than one query per row.
+async function resolveAssigneeNames(
+  entries: { assigneeType: AssigneeType; assigneeId: Types.ObjectId }[]
+): Promise<Map<string, string>> {
+  const idsByType = new Map<AssigneeType, Set<string>>();
+  for (const e of entries) {
+    if (!idsByType.has(e.assigneeType)) idsByType.set(e.assigneeType, new Set());
+    idsByType.get(e.assigneeType)!.add(e.assigneeId.toString());
+  }
+
+  const result = new Map<string, string>();
+  for (const [type, idSet] of idsByType) {
+    const ids = Array.from(idSet);
+    switch (type) {
+      case 'EMPLOYEE': {
+        const employees = await EmployeeModel.find({ _id: { $in: ids } }).populate<{ userId: { name: string } }>('userId', 'name');
+        for (const e of employees) result.set(`EMPLOYEE:${e._id.toString()}`, e.userId?.name ?? '');
+        break;
+      }
+      case 'VENDOR': {
+        const vendors = await VendorModel.find({ _id: { $in: ids } });
+        for (const v of vendors) result.set(`VENDOR:${v._id.toString()}`, v.companyName);
+        break;
+      }
+      case 'TEAM': {
+        const teams = await TeamModel.find({ _id: { $in: ids } });
+        for (const t of teams) result.set(`TEAM:${t._id.toString()}`, t.name);
+        break;
+      }
+      case 'BRANCH': {
+        const branches = await BranchModel.find({ _id: { $in: ids } });
+        for (const b of branches) result.set(`BRANCH:${b._id.toString()}`, b.name);
+        break;
+      }
+      case 'SUB_BRANCH': {
+        const subBranches = await SubBranchModel.find({ _id: { $in: ids } });
+        for (const sb of subBranches) result.set(`SUB_BRANCH:${sb._id.toString()}`, sb.name);
+        break;
+      }
+      case 'OUTSOURCED_PARTNER':
+        // No dedicated OutsourcedPartner model exists yet — a documented gap,
+        // not a fabricated name.
+        break;
+    }
+  }
+  return result;
 }
 
 export async function getServiceRequest(id: string) {
-  const sr = await ServiceRequestModel.findById(id);
+  const sr = await ServiceRequestModel.findById(id)
+    .populate<{ customerId: { name: string; contacts: { mobile: string; isPrimary: boolean }[] } }>('customerId', 'name contacts')
+    .populate<{ serviceId: { name: string } }>('serviceId', 'name')
+    .populate<{ createdBy: { name: string } }>('createdBy', 'name')
+    .populate<{
+      customerProductId: { brandId: { label: string }; productTypeId: { label: string }; modelNumber?: string; purchaseDate?: Date; warrantyExpiresAt?: Date } | null;
+    }>({
+      path: 'customerProductId',
+      populate: [
+        { path: 'brandId', select: 'label' },
+        { path: 'productTypeId', select: 'label' },
+      ],
+    });
   if (!sr) throw new NotFoundError('Service request not found');
-  return sr;
+
+  const assigneeName =
+    sr.assigneeType && sr.assigneeId
+      ? (await resolveAssigneeNames([{ assigneeType: sr.assigneeType, assigneeId: sr.assigneeId }])).get(`${sr.assigneeType}:${sr.assigneeId.toString()}`) ?? null
+      : null;
+
+  const obj = sr.toObject();
+  const customer = obj.customerId as unknown as { _id: Types.ObjectId; name: string; contacts: { mobile: string; isPrimary: boolean }[] } | null;
+  const service = obj.serviceId as unknown as { _id: Types.ObjectId; name: string } | null;
+  const createdByUser = obj.createdBy as unknown as { name: string } | null;
+  const customerProduct = obj.customerProductId as unknown as {
+    brandId: { label: string };
+    productTypeId: { label: string };
+    modelNumber?: string;
+    purchaseDate?: Date;
+    warrantyExpiresAt?: Date;
+  } | null;
+
+  return {
+    ...obj,
+    customerId: customer?._id,
+    serviceId: service?._id,
+    customer: customer ? { name: customer.name, mobile: customer.contacts.find((c) => c.isPrimary)?.mobile ?? customer.contacts[0]?.mobile } : null,
+    service: service ? { name: service.name } : null,
+    createdByName: createdByUser?.name ?? null,
+    customerProduct: customerProduct
+      ? {
+          brand: customerProduct.brandId?.label,
+          productType: customerProduct.productTypeId?.label,
+          modelNumber: customerProduct.modelNumber,
+          purchaseDate: customerProduct.purchaseDate,
+          warrantyExpiresAt: customerProduct.warrantyExpiresAt,
+        }
+      : null,
+    assignee: sr.assigneeType && assigneeName ? { type: sr.assigneeType, name: assigneeName } : null,
+  };
 }
 
 // Resolves the owning branch by pin-code + service-category coverage — mirrors
@@ -383,11 +506,15 @@ export async function getReopenHistory(serviceRequestId: string) {
   const sr = await ServiceRequestModel.findById(serviceRequestId);
   if (!sr) throw new NotFoundError('Service request not found');
   const rootId = await findRootServiceRequestId(sr);
-  return ReopenRecordModel.find({ originalServiceRequestId: rootId }).sort({ reopenedAt: 1 });
+  return ReopenRecordModel.find({ originalServiceRequestId: rootId })
+    .populate('reopenedBy', 'name')
+    .sort({ reopenedAt: 1 });
 }
 
 export async function getAssignmentHistory(serviceRequestId: string) {
-  return AssignmentHistoryModel.find({ serviceRequestId }).sort({ timestamp: -1 });
+  return AssignmentHistoryModel.find({ serviceRequestId })
+    .populate('actorId', 'name')
+    .sort({ timestamp: -1 });
 }
 
 function hashOtp(otp: string): string {
