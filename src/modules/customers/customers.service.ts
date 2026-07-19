@@ -1,8 +1,10 @@
 import { CustomerModel, CustomerProductModel, ConsentState } from './customers.model';
+import { ServiceRequestModel } from '../service-requests/serviceRequests.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
+import { resolveVerticalServiceIds } from '../../lib/verticals';
 
 interface ListParams {
   page: number;
@@ -11,6 +13,7 @@ interface ListParams {
   blacklisted?: boolean;
   tag?: string;
   q?: string;
+  vertical?: string;
 }
 
 export async function listCustomers(params: ListParams) {
@@ -18,6 +21,13 @@ export async function listCustomers(params: ListParams) {
   if (params.customerType) filter.customerType = params.customerType;
   if (params.blacklisted !== undefined) filter.blacklisted = params.blacklisted;
   if (params.tag) filter.tags = params.tag;
+  // A customer has no direct category link — "Beauty customer" means they
+  // have at least one Service Request for a service in that vertical.
+  if (params.vertical) {
+    const serviceIds = await resolveVerticalServiceIds(params.vertical);
+    const customerIds = await ServiceRequestModel.find({ serviceId: { $in: serviceIds } }).distinct('customerId');
+    filter._id = { $in: customerIds };
+  }
   if (params.q) {
     filter.$or = [
       { name: { $regex: params.q, $options: 'i' } },

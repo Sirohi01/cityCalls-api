@@ -3,6 +3,7 @@ import { BranchModel } from '../organization/organization.model';
 import { MasterModel } from '../config/master.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
+import { resolveVerticalCategoryIds } from '../../lib/verticals';
 
 // Brands ride on the generic Masters engine (masterType: 'BRAND'), same as
 // every other master list — this just gives the admin UI's brand-management
@@ -24,6 +25,7 @@ interface ListParams {
   categoryId?: string;
   productTypeId?: string;
   q?: string;
+  vertical?: string;
 }
 
 export async function listServices(params: ListParams) {
@@ -32,6 +34,7 @@ export async function listServices(params: ListParams) {
   if (params.categoryId) filter.categoryId = params.categoryId;
   if (params.productTypeId) filter.applicableProductTypeIds = params.productTypeId;
   if (params.q) filter.name = { $regex: params.q, $options: 'i' };
+  if (params.vertical) filter.categoryId = { $in: await resolveVerticalCategoryIds(params.vertical) };
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([

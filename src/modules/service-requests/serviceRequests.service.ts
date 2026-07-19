@@ -22,6 +22,7 @@ import { ReopenRecordModel } from '../follow-up/reopenRecords.model';
 import { OtpModel } from '../auth/otp.model';
 import crypto from 'crypto';
 import { UnauthorizedError } from '../../lib/errors';
+import { resolveVerticalServiceIds } from '../../lib/verticals';
 
 const ASSIGNEE_TYPE_TO_STATUS: Record<AssigneeType, ServiceRequestStatus> = {
   BRANCH: 'ASSIGNED_TO_BRANCH',
@@ -44,6 +45,7 @@ interface ListParams {
   priority?: string;
   customerId?: string;
   q?: string;
+  vertical?: string;
 }
 
 export async function listServiceRequests(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
@@ -55,6 +57,7 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   if (params.priority) filter.priority = params.priority;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.q) filter.number = { $regex: params.q, $options: 'i' };
+  if (params.vertical) filter.serviceId = { $in: await resolveVerticalServiceIds(params.vertical) };
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
   if (scope === 'SUB_BRANCH' && user.subBranchId) filter.subBranchId = user.subBranchId;
 

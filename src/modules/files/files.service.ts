@@ -125,3 +125,22 @@ export async function getFile(id: string) {
   if (!file || file.deletedAt) throw new NotFoundError('File not found');
   return file;
 }
+
+interface ListFilesParams {
+  entityType: string;
+  entityId: string;
+  category?: FileCategory;
+}
+
+// Powers gallery views (e.g. a Catalog Service's or Brand's attached media) —
+// the signed-upload/confirm/delete endpoints above only ever dealt with one
+// file at a time, so nothing previously exposed "every file for this entity".
+export async function listFiles(params: ListFilesParams) {
+  const filter: Record<string, unknown> = {
+    entityType: params.entityType,
+    entityId: params.entityId,
+    deletedAt: { $exists: false },
+  };
+  if (params.category) filter.category = params.category;
+  return FileModel.find(filter).sort({ createdAt: -1 });
+}

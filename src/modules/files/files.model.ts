@@ -18,6 +18,10 @@ export const FILE_CATEGORIES = [
   'VIDEO',
   'SIGNATURE',
   'PROFILE_IMAGE',
+  // Marketing/gallery images for a Catalog Service or Brand — distinct from
+  // PRODUCT_IMAGE, which is a customer-owned product photo in the service-
+  // request lifecycle, not a catalog listing photo.
+  'CATALOG_IMAGE',
 ] as const;
 export type FileCategory = (typeof FILE_CATEGORIES)[number];
 

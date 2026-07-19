@@ -30,6 +30,7 @@ const CATEGORY_RULES: Record<FileCategory, CategoryRule> = {
   VIDEO: { allowedMimeTypes: VIDEO_TYPES, maxSizeBytes: 100 * 1024 * 1024 },
   SIGNATURE: { allowedMimeTypes: IMAGE_TYPES, maxSizeBytes: 2 * 1024 * 1024 },
   PROFILE_IMAGE: { allowedMimeTypes: IMAGE_TYPES, maxSizeBytes: 5 * 1024 * 1024 },
+  CATALOG_IMAGE: { allowedMimeTypes: IMAGE_TYPES, maxSizeBytes: 10 * 1024 * 1024 },
 };
 
 export function assertFileAllowed(category: FileCategory, mimeType: string, sizeBytes: number): void {

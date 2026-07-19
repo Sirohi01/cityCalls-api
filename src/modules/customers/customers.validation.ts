@@ -85,4 +85,5 @@ export const listCustomersQuerySchema = z.object({
   blacklisted: z.coerce.boolean().optional(),
   tag: z.string().optional(),
   q: z.string().optional(),
+  vertical: z.string().optional(),
 });

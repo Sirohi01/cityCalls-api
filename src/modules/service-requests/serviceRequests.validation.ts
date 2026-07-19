@@ -71,4 +71,5 @@ export const listServiceRequestsQuerySchema = z.object({
   customerId: z.string().optional(),
   q: z.string().optional(),
   sort: z.string().optional(),
+  vertical: z.string().optional(),
 });

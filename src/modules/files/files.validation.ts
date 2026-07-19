@@ -22,3 +22,9 @@ export const uploadFormSchema = z.object({
   entityType: z.string().min(1),
   entityId: z.string().min(1),
 });
+
+export const listFilesQuerySchema = z.object({
+  entityType: z.string().min(1),
+  entityId: z.string().min(1),
+  category: z.enum(FILE_CATEGORIES).optional(),
+});

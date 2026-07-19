@@ -66,4 +66,5 @@ export const listServicesQuerySchema = z.object({
   productTypeId: z.string().optional(),
   pinCode: z.string().optional(),
   q: z.string().optional(),
+  vertical: z.string().optional(),
 });

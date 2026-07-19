@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { signedUploadSchema, confirmUploadSchema, uploadFormSchema } from './files.validation';
+import { signedUploadSchema, confirmUploadSchema, uploadFormSchema, listFilesQuerySchema } from './files.validation';
 import * as ctrl from './files.controller';
 
 // In-memory storage — files are small enough (largest category cap is 100MB
@@ -15,6 +15,7 @@ const router = Router();
 router.post('/files/signed-upload', authMiddleware, validate(signedUploadSchema), ctrl.signedUploadHandler);
 router.post('/files/confirm', authMiddleware, validate(confirmUploadSchema), ctrl.confirmUploadHandler);
 router.post('/files/upload', authMiddleware, upload.single('file'), validate(uploadFormSchema), ctrl.directUploadHandler);
+router.get('/files', authMiddleware, validate(listFilesQuerySchema, 'query'), ctrl.listFilesHandler);
 router.get('/files/:id', authMiddleware, ctrl.getFileHandler);
 router.delete('/files/:id', authMiddleware, ctrl.deleteFileHandler);
 

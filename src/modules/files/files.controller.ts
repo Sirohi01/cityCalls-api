@@ -51,6 +51,15 @@ export async function directUploadHandler(req: ScopedRequest & { file?: Express.
   }
 }
 
+export async function listFilesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const files = await filesService.listFiles(req.query as never);
+    sendSuccess(res, files, 'Files fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getFileHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const file = await filesService.getFile(paramAsString(req.params.id));
