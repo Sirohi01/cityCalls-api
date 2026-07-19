@@ -23,7 +23,28 @@ export const createVendorSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const updateVendorSchema = createVendorSchema.partial();
+// Explicit (not createVendorSchema.partial()) — see updateCustomerSchema
+// in customers.validation.ts for why: .partial() over .default()-bearing
+// fields still applies the default on an omitted key, which would reset
+// serviceAreas/servicesOffered/skills/etc. to empty on any partial PATCH.
+export const updateVendorSchema = z.object({
+  companyName: z.string().min(2).optional(),
+  contactPersons: z.array(z.object({ name: z.string(), mobile: z.string(), role: z.string().optional() })).optional(),
+  serviceAreas: z.object({ pinCodes: z.array(z.string()).default([]) }).optional(),
+  servicesOffered: z.array(z.string()).optional(),
+  brandsHandled: z.array(z.string()).optional(),
+  productTypesHandled: z.array(z.string()).optional(),
+  skills: z.array(z.string()).optional(),
+  gst: z.string().optional(),
+  pan: z.string().optional(),
+  bankDetails: z
+    .object({ accountNumber: z.string(), ifsc: z.string(), accountHolderName: z.string() })
+    .optional(),
+  agreement: z.object({ url: z.string(), expiryDate: z.coerce.date() }).optional(),
+  commissionModel: z.enum(['FIXED', 'SERVICE_WISE']).optional(),
+  commissionRate: z.number().optional(),
+  active: z.boolean().optional(),
+});
 
 export const blacklistVendorSchema = z.object({
   blacklisted: z.boolean(),

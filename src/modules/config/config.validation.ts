@@ -21,7 +21,14 @@ export const createMasterSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const updateMasterSchema = createMasterSchema.partial();
+export const updateMasterSchema = z.object({
+  key: z.string().min(1).optional(),
+  label: z.string().min(1).optional(),
+  parentId: z.string().optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+  sortOrder: z.number().optional(),
+  active: z.boolean().optional(),
+});
 
 export const listMastersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

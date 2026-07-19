@@ -11,7 +11,20 @@ export const createEmployeeSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const updateEmployeeSchema = createEmployeeSchema.partial();
+// Explicit (not createEmployeeSchema.partial()) — see updateCustomerSchema
+// in customers.validation.ts for why: .partial() over .default()-bearing
+// fields still applies the default on an omitted key, which would wipe
+// skills/certifications and reset dailyCapacity to 5 on any partial PATCH.
+export const updateEmployeeSchema = z.object({
+  userId: z.string().optional(),
+  branchId: z.string().optional(),
+  subBranchId: z.string().optional(),
+  teamId: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+  certifications: z.array(z.string()).optional(),
+  dailyCapacity: z.number().optional(),
+  active: z.boolean().optional(),
+});
 
 export const listEmployeesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

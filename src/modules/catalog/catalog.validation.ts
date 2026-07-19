@@ -29,7 +29,34 @@ export const createServiceSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const updateServiceSchema = createServiceSchema.partial();
+export const updateServiceSchema = z.object({
+  name: z.string().min(2).optional(),
+  categoryId: z.string().optional(),
+  subCategoryId: z.string().optional(),
+  applicableBrandIds: z.array(z.string()).optional(),
+  applicableProductTypeIds: z.array(z.string()).optional(),
+  symptomIds: z.array(z.string()).optional(),
+  defectIds: z.array(z.string()).optional(),
+  solutionTypeIds: z.array(z.string()).optional(),
+  requiredSkills: z.array(z.string()).optional(),
+  expectedDurationMinutes: z.number().optional(),
+  pricing: z
+    .object({
+      basePrice: z.number().default(0),
+      visitingCharge: z.number().default(0),
+      inspectionCharge: z.number().default(0),
+      emergencyCharge: z.number().default(0),
+    })
+    .optional(),
+  taxRateId: z.string().optional(),
+  warrantyPeriodDays: z.number().optional(),
+  reopenPeriodDaysOverride: z.number().optional(),
+  requiredDocuments: z.array(z.string()).optional(),
+  requiredImages: z.object({ before: z.number().default(0), after: z.number().default(0) }).optional(),
+  mandatoryChecklist: z.array(z.string()).optional(),
+  slaMinutes: z.number().optional(),
+  active: z.boolean().optional(),
+});
 
 export const listServicesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

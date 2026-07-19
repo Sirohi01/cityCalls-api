@@ -12,7 +12,7 @@ interface IContact {
 
 interface IAddress extends Types.Subdocument {
   label?: string;
-  line1: string;
+  line1?: string;
   line2?: string;
   landmark?: string;
   city: string;
@@ -67,7 +67,7 @@ const customerSchema = new Schema<ICustomer>(
     addresses: [
       {
         label: String,
-        line1: { type: String, required: true },
+        line1: { type: String },
         line2: String,
         landmark: String,
         city: { type: String, required: true },

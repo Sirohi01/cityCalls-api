@@ -33,7 +33,29 @@ export const createBranchSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const updateBranchSchema = createBranchSchema.partial();
+// Explicit (not createBranchSchema.partial()) — see updateCustomerSchema
+// in customers.validation.ts for why: .partial() over .default()-bearing
+// fields still applies the default on an omitted key, which would wipe
+// coverage/serviceCategoryIds/workingHours/holidays to empty on any
+// partial PATCH that didn't resend them all.
+export const updateBranchSchema = z.object({
+  name: z.string().min(2).optional(),
+  code: z.string().min(2).max(10).optional(),
+  coverage: z
+    .object({
+      pinCodes: z.array(z.string()).default([]),
+      cities: z.array(z.string()).default([]),
+      states: z.array(z.string()).default([]),
+    })
+    .optional(),
+  serviceCategoryIds: z.array(z.string()).optional(),
+  workingHours: z.array(workingHoursSchema).optional(),
+  managerId: z.string().optional(),
+  registeredAddress: registeredAddressSchema.optional(),
+  gstin: z.string().optional(),
+  holidays: z.array(z.coerce.date()).optional(),
+  active: z.boolean().optional(),
+});
 
 export const createSubBranchSchema = z.object({
   branchId: z.string(),
@@ -44,7 +66,16 @@ export const createSubBranchSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const updateSubBranchSchema = createSubBranchSchema.partial();
+// Explicit (not createSubBranchSchema.partial()) — same defaults-under-
+// partial() footgun as updateBranchSchema above.
+export const updateSubBranchSchema = z.object({
+  branchId: z.string().optional(),
+  name: z.string().min(2).optional(),
+  code: z.string().min(2).max(10).optional(),
+  coverage: z.object({ pinCodes: z.array(z.string()).default([]) }).optional(),
+  managerId: z.string().optional(),
+  active: z.boolean().optional(),
+});
 
 export const createTeamSchema = z.object({
   branchId: z.string(),
@@ -54,7 +85,16 @@ export const createTeamSchema = z.object({
   memberIds: z.array(z.string()).default([]),
 });
 
-export const updateTeamSchema = createTeamSchema.partial();
+// Explicit (not createTeamSchema.partial()) — same defaults-under-
+// partial() footgun as updateBranchSchema above (memberIds would wipe
+// to [] on any partial PATCH that didn't resend it).
+export const updateTeamSchema = z.object({
+  branchId: z.string().optional(),
+  subBranchId: z.string().optional(),
+  name: z.string().min(2).optional(),
+  leadId: z.string().optional(),
+  memberIds: z.array(z.string()).optional(),
+});
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const addressSchema = z.object({
   label: z.string().optional(),
-  line1: z.string().min(1),
+  line1: z.string().optional(),
   line2: z.string().optional(),
   landmark: z.string().optional(),
   city: z.string().min(1),
@@ -37,13 +37,29 @@ export const createCustomerSchema = z.object({
   addresses: z.array(addressSchema).default([]),
   tags: z.array(z.string()).default([]),
   consent: consentInputSchema.optional(),
-  // A full address isn't always known at creation time (e.g. the call-intake
-  // waitlist path only has a pincode, not a street address) — notes lets
-  // that context be recorded without inventing a fake address.line1.
   notes: z.array(z.string()).optional(),
 });
 
-export const updateCustomerSchema = createCustomerSchema.partial();
+// NOT createCustomerSchema.partial() — in this Zod version, .partial()
+// wraps .default()-bearing fields in .optional() but the default still
+// fires for an omitted key, so a partial() derivation would silently
+// reset addresses/tags/customerType to their create-time defaults on
+// every PATCH that doesn't explicitly resend them (e.g. wiping a
+// customer's whole address book when only their email is edited).
+// Defined explicitly with plain .optional() (no .default()) instead, so
+// an omitted field is left untouched rather than reset.
+export const updateCustomerSchema = z.object({
+  customerType: z.string().min(1).optional(),
+  name: z.string().min(2).optional(),
+  businessName: z.string().optional(),
+  gstin: z.string().optional(),
+  email: z.string().email().optional(),
+  contacts: z.array(contactSchema).optional(),
+  addresses: z.array(addressSchema).optional(),
+  tags: z.array(z.string()).optional(),
+  consent: consentInputSchema.optional(),
+  notes: z.array(z.string()).optional(),
+});
 
 export const addAddressSchema = addressSchema;
 export const updateAddressSchema = addressSchema.partial();
