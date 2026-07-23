@@ -145,12 +145,17 @@ const PERMISSIONS: PermissionRow[] = [
   // transitions a CUSTOMER can actually make), and the public catalog.
   ...allFor('CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('CUSTOMER', ['catalog'], ['view'], 'ALL'),
+  // Masters (SERVICE_CATEGORY/BRAND/PRODUCT_TYPE) are non-sensitive lookup
+  // data the catalog-browse screens need to resolve names for — same ALL
+  // scope reasoning as catalog.view above, not a mistake copied from staff roles.
+  ...allFor('CUSTOMER', ['config'], ['view'], 'ALL'),
   ...allFor('CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
   ...allFor('CUSTOMER', ['files'], ['create'], 'OWN'), // issue images at booking time
   ...allFor('CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'), // view + approve/reject own estimates, view own invoices/receipts
   ...allFor('BUSINESS_CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
+  ...allFor('BUSINESS_CUSTOMER', ['config'], ['view'], 'ALL'),
   ...allFor('BUSINESS_CUSTOMER', ['serviceRequests'], ['view', 'create', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'),

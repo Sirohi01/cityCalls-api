@@ -17,6 +17,7 @@ const router = Router();
 
 router.get('/customers', authMiddleware, requirePermission('customers', 'view'), validate(listCustomersQuerySchema, 'query'), ctrl.listCustomersHandler);
 router.get('/customers/duplicates', authMiddleware, requirePermission('customers', 'view'), ctrl.findDuplicatesHandler);
+router.get('/customers/me', authMiddleware, requirePermission('customers', 'view'), ctrl.getOwnCustomerHandler);
 router.get('/customers/:id', authMiddleware, requirePermission('customers', 'view'), ctrl.getCustomerHandler);
 router.post('/customers', authMiddleware, requirePermission('customers', 'create'), validate(createCustomerSchema), ctrl.createCustomerHandler);
 router.patch('/customers/:id', authMiddleware, requirePermission('customers', 'edit'), validate(updateCustomerSchema), ctrl.updateCustomerHandler);

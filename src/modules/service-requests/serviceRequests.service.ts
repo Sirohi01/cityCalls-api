@@ -48,6 +48,8 @@ interface ListParams {
   vertical?: string;
 }
 
+const CUSTOMER_ROLES_FOR_SCOPE = ['CUSTOMER', 'BUSINESS_CUSTOMER'];
+
 export async function listServiceRequests(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
@@ -60,6 +62,10 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   if (params.vertical) filter.serviceId = { $in: await resolveVerticalServiceIds(params.vertical) };
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
   if (scope === 'SUB_BRANCH' && user.subBranchId) filter.subBranchId = user.subBranchId;
+  if (scope === 'OWN' && CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) {
+    const ownCustomer = await CustomerModel.findOne({ userId: user.sub }).select('_id');
+    filter.customerId = ownCustomer ? ownCustomer._id : null;
+  }
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -185,20 +191,29 @@ export async function getServiceRequest(id: string) {
     createdByName: createdByUser?.name ?? null,
     customerProduct: customerProduct
       ? {
-          brand: customerProduct.brandId?.label,
-          productType: customerProduct.productTypeId?.label,
-          modelNumber: customerProduct.modelNumber,
-          purchaseDate: customerProduct.purchaseDate,
-          warrantyExpiresAt: customerProduct.warrantyExpiresAt,
-        }
+        brand: customerProduct.brandId?.label,
+        productType: customerProduct.productTypeId?.label,
+        modelNumber: customerProduct.modelNumber,
+        purchaseDate: customerProduct.purchaseDate,
+        warrantyExpiresAt: customerProduct.warrantyExpiresAt,
+      }
       : null,
     assignee: sr.assigneeType && assigneeName ? { type: sr.assigneeType, name: assigneeName } : null,
   };
 }
-
-// Resolves the owning branch by pin-code + service-category coverage — mirrors
-// catalog.service.checkCoverage but returns the full branch doc, since creation
-// needs it for SLA calculation too, not just a serviceable/not-serviceable flag.
+export async function assertOwnServiceRequestAccess(
+  sr: { customerId?: unknown },
+  scope: DataScope,
+  user: AccessTokenPayload
+): Promise<void> {
+  if (scope !== 'OWN' || !CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) return;
+  const ownCustomer = await CustomerModel.findOne({ userId: user.sub }).select('_id');
+  const ownId = ownCustomer?._id?.toString();
+  const srCustomerId = (sr.customerId as { toString(): string } | undefined)?.toString();
+  if (!ownId || srCustomerId !== ownId) {
+    throw new NotFoundError('Service request not found');
+  }
+}
 async function resolveBranch(serviceId: string, pinCode: string): Promise<IBranch | null> {
   const service = await ServiceModel.findById(serviceId);
   if (!service || !service.active) return null;

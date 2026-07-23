@@ -230,3 +230,12 @@ export async function issueDebitNoteHandler(req: ScopedRequest, res: Response, n
     next(err);
   }
 }
+
+export async function listInvoiceNotesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const notes = await notesService.listNotesForInvoice(paramAsString(req.params.id));
+    sendSuccess(res, notes, 'Credit/debit notes fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}

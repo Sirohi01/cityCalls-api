@@ -18,7 +18,9 @@ export async function listServiceRequestsHandler(req: ScopedRequest, res: Respon
 
 export async function getServiceRequestHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
     const sr = await srService.getServiceRequest(paramAsString(req.params.id));
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
     sendSuccess(res, sr, 'Service request fetched successfully');
   } catch (err) {
     next(err);
@@ -34,10 +36,6 @@ export async function createServiceRequestHandler(req: ScopedRequest, res: Respo
     next(err);
   }
 }
-
-// Per docs/07-status-transition-matrix.md and docs/18-error-handling-standards.md §2:
-// an invalid transition returns 409 with the current status and the actual
-// allowed-next-statuses list, so the client can recover instead of guessing.
 export async function changeStatusHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new UnauthorizedError();

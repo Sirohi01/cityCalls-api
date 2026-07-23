@@ -39,6 +39,7 @@ router.post('/invoices/:id/share', authMiddleware, requirePermission('finance', 
 router.post('/invoices/:id/cancel', authMiddleware, requirePermission('finance', 'edit'), validate(cancelInvoiceSchema), ctrl.cancelInvoiceHandler);
 router.post('/invoices/:id/payments', authMiddleware, requirePermission('finance', 'edit'), validate(recordPaymentSchema), ctrl.recordPaymentHandler);
 router.get('/invoices/:id/payments', authMiddleware, requirePermission('finance', 'view'), ctrl.listPaymentsHandler);
+router.get('/invoices/:id/notes', authMiddleware, requirePermission('finance', 'view'), ctrl.listInvoiceNotesHandler);
 
 // Payment Receipts
 router.get('/payment-receipts/:id', authMiddleware, requirePermission('finance', 'view'), ctrl.getPaymentReceiptHandler);

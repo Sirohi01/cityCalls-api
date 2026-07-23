@@ -1,5 +1,6 @@
 import { CustomerModel, CustomerProductModel, ConsentState } from './customers.model';
 import { ServiceRequestModel } from '../service-requests/serviceRequests.model';
+import { UserModel } from '../users/users.model';
 import { NotFoundError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
 import { logActivity } from '../../lib/auditLog';
@@ -47,6 +48,28 @@ export async function getCustomer(id: string) {
   const customer = await CustomerModel.findById(id);
   if (!customer) throw new NotFoundError('Customer not found');
   return customer;
+}
+export async function findOrCreateOwnCustomer(userId: string) {
+  let customer = await CustomerModel.findOne({ userId });
+  if (customer) return customer;
+
+  const user = await UserModel.findById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  customer = await CustomerModel.findOne({ 'contacts.mobile': user.mobile });
+  if (customer) {
+    if (!customer.userId) {
+      customer.userId = user._id;
+      await customer.save();
+    }
+    return customer;
+  }
+
+  return CustomerModel.create({
+    userId: user._id,
+    name: user.name,
+    contacts: [{ name: user.name, mobile: user.mobile, isPrimary: true }],
+  });
 }
 
 // Duplicate detection per docs/04-modules-and-feature-list.md M5 — matches on mobile
