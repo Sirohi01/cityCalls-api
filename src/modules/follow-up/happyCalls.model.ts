@@ -8,7 +8,10 @@ export type HappyCallStatus = (typeof HAPPY_CALL_STATUSES)[number];
 // reopen/escalation flags), per docs/06-complete-workflow-document.md Stage 10.
 export interface IHappyCall extends Document {
   serviceRequestId: Types.ObjectId;
-  assignedTo: Types.ObjectId;
+  // Optional because a customer can submit their own in-app rating/feedback
+  // (customers.service.ts's submitCustomerFeedback) before any staff Happy
+  // Call has been scheduled — assignedTo only gets set once one actually is.
+  assignedTo?: Types.ObjectId;
   performedBy?: Types.ObjectId;
   callDate?: Date;
   callTime?: string;
@@ -28,7 +31,7 @@ export interface IHappyCall extends Document {
 const happyCallSchema = new Schema<IHappyCall>(
   {
     serviceRequestId: { type: Schema.Types.ObjectId, ref: 'ServiceRequest', required: true },
-    assignedTo: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
     performedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     callDate: { type: Date },
     callTime: { type: String },

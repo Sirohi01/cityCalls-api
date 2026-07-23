@@ -7,6 +7,13 @@ import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { updateStatus as updateServiceRequestStatus } from '../service-requests/serviceRequests.service';
+import { isCustomerRole, resolveOwnCustomerId } from '../../lib/ownCustomerScope';
+
+async function assertOwnInvoiceIfCustomer(invoiceCustomerId: unknown, actor: AccessTokenPayload): Promise<void> {
+  if (!isCustomerRole(actor.role)) return;
+  const ownId = await resolveOwnCustomerId(actor.sub);
+  if (!ownId || invoiceCustomerId?.toString() !== ownId) throw new NotFoundError('Invoice not found');
+}
 
 interface RecordPaymentInput {
   amount: number;
@@ -22,6 +29,7 @@ interface RecordPaymentInput {
 export async function recordPayment(invoiceId: string, input: RecordPaymentInput, actor: AccessTokenPayload) {
   const invoice = await InvoiceModel.findById(invoiceId);
   if (!invoice) throw new NotFoundError('Invoice not found');
+  await assertOwnInvoiceIfCustomer(invoice.customerId, actor);
   if (invoice.status === 'CANCELLED') {
     throw new ConflictError('Cannot record a payment against a cancelled invoice', 'INVOICE_CANCELLED');
   }
@@ -80,7 +88,12 @@ export async function recordPayment(invoiceId: string, input: RecordPaymentInput
   return receipt;
 }
 
-export async function listPaymentsForInvoice(invoiceId: string) {
+export async function listPaymentsForInvoice(invoiceId: string, actor?: AccessTokenPayload) {
+  if (actor && isCustomerRole(actor.role)) {
+    const invoice = await InvoiceModel.findById(invoiceId).select('customerId');
+    if (!invoice) throw new NotFoundError('Invoice not found');
+    await assertOwnInvoiceIfCustomer(invoice.customerId, actor);
+  }
   return PaymentReceiptModel.find({ invoiceId }).sort({ createdAt: -1 });
 }
 

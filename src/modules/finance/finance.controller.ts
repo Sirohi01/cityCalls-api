@@ -31,7 +31,7 @@ export async function listEstimatesHandler(req: ScopedRequest, res: Response, ne
 
 export async function getEstimateHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const estimate = await estimatesService.getEstimate(paramAsString(req.params.id));
+    const estimate = await estimatesService.getEstimate(paramAsString(req.params.id), req.user);
     sendSuccess(res, estimate, 'Estimate fetched successfully');
   } catch (err) {
     next(err);
@@ -153,7 +153,7 @@ export async function listInvoicesHandler(req: ScopedRequest, res: Response, nex
 
 export async function getInvoiceHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const invoice = await invoicesService.getInvoice(paramAsString(req.params.id));
+    const invoice = await invoicesService.getInvoice(paramAsString(req.params.id), req.user);
     sendSuccess(res, invoice, 'Invoice fetched successfully');
   } catch (err) {
     next(err);
@@ -194,7 +194,7 @@ export async function recordPaymentHandler(req: ScopedRequest, res: Response, ne
 
 export async function listPaymentsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const receipts = await paymentsService.listPaymentsForInvoice(paramAsString(req.params.id));
+    const receipts = await paymentsService.listPaymentsForInvoice(paramAsString(req.params.id), req.user);
     sendSuccess(res, receipts, 'Payment receipts fetched successfully');
   } catch (err) {
     next(err);

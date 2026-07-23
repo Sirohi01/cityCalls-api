@@ -11,6 +11,7 @@ import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { DataScope } from '../users/users.types';
+import { isCustomerRole, resolveOwnCustomerId } from '../../lib/ownCustomerScope';
 
 export async function convertProformaToInvoice(proformaId: string, actor: AccessTokenPayload) {
   const proforma = await proformaService.assertConvertible(proformaId);
@@ -107,6 +108,12 @@ export async function listInvoices(
   if (params.customerId) filter.customerId = params.customerId;
   if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
+  // Same fix as estimates.service.ts's listEstimates — CUSTOMER/BUSINESS_CUSTOMER's
+  // OWN scope was previously unenforced here.
+  if (scope === 'OWN' && isCustomerRole(user.role)) {
+    const ownId = await resolveOwnCustomerId(user.sub);
+    filter.customerId = ownId ?? null;
+  }
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -116,9 +123,13 @@ export async function listInvoices(
   return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
 }
 
-export async function getInvoice(id: string) {
+export async function getInvoice(id: string, actor?: AccessTokenPayload) {
   const invoice = await InvoiceModel.findById(id);
   if (!invoice) throw new NotFoundError('Invoice not found');
+  if (actor && isCustomerRole(actor.role)) {
+    const ownId = await resolveOwnCustomerId(actor.sub);
+    if (!ownId || invoice.customerId.toString() !== ownId) throw new NotFoundError('Invoice not found');
+  }
   return invoice;
 }
 

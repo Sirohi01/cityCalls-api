@@ -11,6 +11,7 @@ import { trigger } from '../../lib/notifications';
 import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { DataScope } from '../users/users.types';
+import { isCustomerRole, resolveOwnCustomerId } from '../../lib/ownCustomerScope';
 
 interface LineItemInput {
   description: string;
@@ -83,9 +84,17 @@ export async function listEstimates(
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
-  // Only BRANCH is enforced — OWN (Employee/Technician drafting their own
-  // estimates) has no createdBy field on this model to filter by yet.
+  // BRANCH enforced for staff; OWN enforced for CUSTOMER/BUSINESS_CUSTOMER
+  // (see lib/ownCustomerScope.ts) — previously only BRANCH was enforced here,
+  // meaning any customer-role caller could list every estimate in the system
+  // by simply not passing customerId, or view another customer's by passing
+  // an arbitrary one. Employee/Technician OWN scope (drafting their own
+  // estimates) still has no createdBy field on this model to filter by.
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
+  if (scope === 'OWN' && isCustomerRole(user.role)) {
+    const ownId = await resolveOwnCustomerId(user.sub);
+    filter.customerId = ownId ?? null;
+  }
 
   const skip = (params.page - 1) * params.limit;
   const [items, total] = await Promise.all([
@@ -95,10 +104,22 @@ export async function listEstimates(
   return { items, meta: buildPaginationMeta(params.page, params.limit, total) };
 }
 
-export async function getEstimate(id: string) {
+export async function getEstimate(id: string, actor?: AccessTokenPayload) {
   const estimate = await EstimateModel.findById(id);
   if (!estimate) throw new NotFoundError('Estimate not found');
+  await assertOwnIfCustomer(estimate.customerId, actor);
   return estimate;
+}
+
+// CUSTOMER/BUSINESS_CUSTOMER's finance.edit/view grant is always OWN scope
+// (scripts/seed.ts) — no other scope value applies to those roles for this
+// permission, so this doesn't need req.scope threaded through on top of the
+// role check itself.
+async function assertOwnIfCustomer(recordCustomerId: unknown, actor?: AccessTokenPayload): Promise<void> {
+  if (!actor || !isCustomerRole(actor.role)) return;
+  const ownId = await resolveOwnCustomerId(actor.sub);
+  const recordId = (recordCustomerId as { toString(): string } | undefined)?.toString();
+  if (!ownId || recordId !== ownId) throw new NotFoundError('Estimate not found');
 }
 
 export async function shareEstimate(id: string, channels: string[], actor: AccessTokenPayload) {
@@ -123,6 +144,7 @@ export async function shareEstimate(id: string, channels: string[], actor: Acces
 export async function respondToEstimate(id: string, approve: boolean, actor: AccessTokenPayload) {
   const estimate = await EstimateModel.findById(id);
   if (!estimate) throw new NotFoundError('Estimate not found');
+  await assertOwnIfCustomer(estimate.customerId, actor);
 
   const toStatus = approve ? 'APPROVED' : 'REJECTED';
   assertValidTransition('ESTIMATE', estimate.status, toStatus, actor.role);

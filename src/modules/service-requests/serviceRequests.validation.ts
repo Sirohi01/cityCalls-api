@@ -51,6 +51,17 @@ export const reopenSchema = z.object({
   reason: z.string().min(1),
 });
 
+export const rescheduleSchema = z.object({
+  scheduledDate: z.coerce.date(),
+  scheduledSlot: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export const submitFeedbackSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  remarks: z.string().optional(),
+});
+
 export const verifyCompletionOtpSchema = z.object({
   otp: z.string().length(6, 'Enter the 6-digit OTP'),
 });

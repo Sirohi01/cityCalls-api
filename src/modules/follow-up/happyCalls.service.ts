@@ -65,6 +65,16 @@ export async function scheduleHappyCall(serviceRequestId: string, assignedTo: st
 
   return HappyCallModel.create({ serviceRequestId, assignedTo });
 }
+export async function submitCustomerFeedback(serviceRequestId: string, rating: number, remarks: string | undefined) {
+  let happyCall = await HappyCallModel.findOne({ serviceRequestId });
+  if (!happyCall) {
+    happyCall = await HappyCallModel.create({ serviceRequestId });
+  }
+  happyCall.customerSatisfaction = rating;
+  happyCall.remarks = remarks;
+  await happyCall.save();
+  return happyCall;
+}
 
 export async function listHappyCalls(params: { page: number; limit: number; status?: string; assignedTo?: string }) {
   const filter: Record<string, unknown> = {};

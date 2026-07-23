@@ -305,6 +305,49 @@ export function allowedNextStatuses(currentStatus: ServiceRequestStatus): string
   return getAllowedTransitions('SERVICE_REQUEST', currentStatus);
 }
 
+interface RescheduleInput {
+  scheduledDate: Date;
+  scheduledSlot: string;
+  reason?: string;
+}
+
+// Distinct from updateStatus because this is the one status change that also
+// needs to persist new appointment fields, not just flip the status enum —
+// scripts/seed.ts only grants CUSTOMER_ROLES the APPOINTMENT_SCHEDULED ->
+// RESCHEDULED transition, so this is unreachable from any other status by a
+// customer (assertValidTransition still enforces that here).
+export async function rescheduleServiceRequest(id: string, input: RescheduleInput, actor: AccessTokenPayload) {
+  const sr = await ServiceRequestModel.findById(id);
+  if (!sr) throw new NotFoundError('Service request not found');
+
+  assertValidTransition('SERVICE_REQUEST', sr.status, 'RESCHEDULED', actor.role);
+
+  const fromStatus = sr.status;
+  sr.status = 'RESCHEDULED';
+  sr.scheduledDate = input.scheduledDate;
+  sr.scheduledSlot = input.scheduledSlot;
+  await sr.save();
+
+  await logActivity({
+    entityType: 'SERVICE_REQUEST',
+    entityId: id,
+    user: actor,
+    action: 'STATUS_CHANGED',
+    module: 'service-requests',
+    oldValue: { status: fromStatus },
+    newValue: { status: 'RESCHEDULED', scheduledDate: input.scheduledDate, scheduledSlot: input.scheduledSlot },
+    reason: input.reason,
+  });
+
+  emitServiceRequestStatusChanged(id, { serviceRequestId: id, fromStatus, toStatus: 'RESCHEDULED' });
+  await trigger('SERVICE_REQUEST_RESCHEDULED', {
+    recipient: { customerId: sr.customerId.toString() },
+    variables: { serviceRequestId: id, status: 'RESCHEDULED' },
+  });
+
+  return sr;
+}
+
 interface AssignInput {
   assigneeType: AssigneeType;
   assigneeId: string;

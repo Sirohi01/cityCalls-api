@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import * as srService from './serviceRequests.service';
+import * as happyCallsService from '../follow-up/happyCalls.service';
 import { rankAssignmentCandidates } from '../../lib/assignmentEngine';
 import { sendSuccess, paramAsString } from '../../lib/apiResponse';
 import { ScopedRequest } from '../../middleware/permission.middleware';
@@ -22,6 +23,24 @@ export async function getServiceRequestHandler(req: ScopedRequest, res: Response
     const sr = await srService.getServiceRequest(paramAsString(req.params.id));
     await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
     sendSuccess(res, sr, 'Service request fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Per docs/rohit/05-customer-app-screen-list.md "Feedback" — deliberately
+// reuses getServiceRequest + assertOwnServiceRequestAccess (the same
+// ownership check as the read path) rather than a new check, so this can
+// never be called against someone else's request.
+export async function submitFeedbackHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const sr = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
+    const { rating, remarks } = req.body as { rating: number; remarks?: string };
+    const result = await happyCallsService.submitCustomerFeedback(id, rating, remarks);
+    sendSuccess(res, result, 'Feedback submitted successfully', null, 201);
   } catch (err) {
     next(err);
   }
@@ -51,18 +70,48 @@ export async function deleteServiceRequestHandler(req: ScopedRequest, res: Respo
 }
 export async function changeStatusHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    if (!req.user) throw new UnauthorizedError();
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const existing = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(existing, req.scope, req.user);
     const { toStatus, reason, geo } = req.body as { toStatus: ServiceRequestStatus; reason?: string; geo?: { lat: number; lng: number } };
     try {
-      const sr = await srService.updateStatus(paramAsString(req.params.id), toStatus, req.user, { reason, geo });
+      const sr = await srService.updateStatus(id, toStatus, req.user, { reason, geo });
       sendSuccess(res, sr, 'Service request status updated successfully');
     } catch (err) {
       if (err instanceof InvalidTransitionError) {
-        const sr = await srService.getServiceRequest(paramAsString(req.params.id));
+        const sr = await srService.getServiceRequest(id);
         res.status(409).json({
           success: false,
           message: err.message,
           data: { currentStatus: sr.status, allowedTransitions: srService.allowedNextStatuses(sr.status) },
+          errors: err.errors,
+        });
+        return;
+      }
+      throw err;
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rescheduleHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const existing = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(existing, req.scope, req.user);
+    const { scheduledDate, scheduledSlot, reason } = req.body as { scheduledDate: Date; scheduledSlot: string; reason?: string };
+    try {
+      const sr = await srService.rescheduleServiceRequest(id, { scheduledDate, scheduledSlot, reason }, req.user);
+      sendSuccess(res, sr, 'Service request rescheduled successfully');
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        res.status(409).json({
+          success: false,
+          message: err.message,
+          data: { currentStatus: existing.status, allowedTransitions: srService.allowedNextStatuses(existing.status) },
           errors: err.errors,
         });
         return;
@@ -96,9 +145,12 @@ export async function reassignHandler(req: ScopedRequest, res: Response, next: N
 
 export async function cancelHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    if (!req.user) throw new UnauthorizedError();
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const existing = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(existing, req.scope, req.user);
     const { reason } = req.body as { reason: string };
-    const sr = await srService.cancelServiceRequest(paramAsString(req.params.id), reason, req.user);
+    const sr = await srService.cancelServiceRequest(id, reason, req.user);
     sendSuccess(res, sr, 'Service request cancelled successfully');
   } catch (err) {
     next(err);
@@ -107,9 +159,12 @@ export async function cancelHandler(req: ScopedRequest, res: Response, next: Nex
 
 export async function reopenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    if (!req.user) throw new UnauthorizedError();
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const existing = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(existing, req.scope, req.user);
     const { reason } = req.body as { reason: string };
-    const result = await srService.reopenServiceRequest(paramAsString(req.params.id), reason, req.user);
+    const result = await srService.reopenServiceRequest(id, reason, req.user);
     sendSuccess(res, result, 'Service request reopened successfully', null, 201);
   } catch (err) {
     next(err);
