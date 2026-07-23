@@ -234,3 +234,8 @@ export async function mergeLeads(primaryLeadId: string, duplicateLeadId: string)
 
   return { primary, duplicate };
 }
+
+export async function deleteLead(id: string) {
+  const lead = await LeadModel.findByIdAndDelete(id);
+  if (!lead) throw new NotFoundError('Lead not found');
+}

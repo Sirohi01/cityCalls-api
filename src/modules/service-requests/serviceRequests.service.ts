@@ -251,6 +251,20 @@ export async function createServiceRequest(data: Record<string, unknown> & { add
   return sr;
 }
 
+export async function deleteServiceRequest(id: string, actor: AccessTokenPayload) {
+  const sr = await ServiceRequestModel.findByIdAndDelete(id);
+  if (!sr) throw new NotFoundError('Service request not found');
+
+  await logActivity({
+    entityType: 'SERVICE_REQUEST',
+    entityId: id,
+    user: actor,
+    action: 'DELETED',
+    module: 'service-requests',
+    reason: 'Manual deletion via admin panel',
+  });
+}
+
 interface StatusChangeMeta {
   reason?: string;
   geo?: { lat: number; lng: number };

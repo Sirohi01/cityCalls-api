@@ -92,3 +92,12 @@ export async function mergeLeadsHandler(req: ScopedRequest, res: Response, next:
     next(err);
   }
 }
+
+export async function deleteLeadHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await leadService.deleteLead(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Lead deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}

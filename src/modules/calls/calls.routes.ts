@@ -11,5 +11,6 @@ router.get('/calls', authMiddleware, requirePermission('calls', 'view'), validat
 router.get('/calls/:id', authMiddleware, requirePermission('calls', 'view'), ctrl.getCallHandler);
 router.post('/calls', authMiddleware, requirePermission('calls', 'create'), validate(createCallSchema), ctrl.createCallHandler);
 router.patch('/calls/:id', authMiddleware, requirePermission('calls', 'edit'), validate(updateCallSchema), ctrl.updateCallHandler);
+router.delete('/calls/:id', authMiddleware, requirePermission('calls', 'edit'), ctrl.deleteCallHandler);
 
 export default router;

@@ -77,6 +77,17 @@ export async function updateCustomerHandler(req: ScopedRequest, res: Response, n
   }
 }
 
+export async function deleteCustomerHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const id = paramAsString(req.params.id);
+    assertOwnCustomer(await customerService.getCustomer(id), req);
+    await customerService.deleteCustomer(id);
+    sendSuccess(res, null, 'Customer deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function addAddressHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const id = paramAsString(req.params.id);

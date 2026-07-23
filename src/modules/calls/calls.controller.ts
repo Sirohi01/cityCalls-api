@@ -41,3 +41,12 @@ export async function updateCallHandler(req: ScopedRequest, res: Response, next:
     next(err);
   }
 }
+
+export async function deleteCallHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await callService.deleteCall(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Call deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}

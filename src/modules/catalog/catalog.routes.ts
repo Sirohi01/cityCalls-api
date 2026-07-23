@@ -12,6 +12,7 @@ router.get('/services/:id', authMiddleware, requirePermission('catalog', 'view')
 router.get('/services/:id/coverage', authMiddleware, requirePermission('catalog', 'view'), ctrl.checkCoverageHandler);
 router.post('/services', authMiddleware, requirePermission('catalog', 'create'), validate(createServiceSchema), ctrl.createServiceHandler);
 router.patch('/services/:id', authMiddleware, requirePermission('catalog', 'edit'), validate(updateServiceSchema), ctrl.updateServiceHandler);
+router.delete('/services/:id', authMiddleware, requirePermission('catalog', 'edit'), ctrl.deleteServiceHandler);
 
 router.get('/brands', authMiddleware, requirePermission('catalog', 'view'), ctrl.listBrandsHandler);
 

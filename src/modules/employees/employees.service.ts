@@ -43,3 +43,8 @@ export async function updateEmployee(id: string, data: Record<string, unknown>) 
   if (!employee) throw new NotFoundError('Employee not found');
   return employee;
 }
+
+export async function deleteEmployee(id: string) {
+  const employee = await EmployeeModel.findByIdAndDelete(id);
+  if (!employee) throw new NotFoundError('Employee not found');
+}

@@ -45,6 +45,11 @@ export async function updateBranch(id: string, data: Record<string, unknown>) {
   return branch;
 }
 
+export async function deleteBranch(id: string) {
+  const branch = await BranchModel.findByIdAndDelete(id);
+  if (!branch) throw new NotFoundError('Branch not found');
+}
+
 export async function listSubBranches(branchId: string | undefined, params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (branchId) filter.branchId = branchId;
@@ -73,6 +78,11 @@ export async function updateSubBranch(id: string, data: Record<string, unknown>)
   return subBranch;
 }
 
+export async function deleteSubBranch(id: string) {
+  const subBranch = await SubBranchModel.findByIdAndDelete(id);
+  if (!subBranch) throw new NotFoundError('Sub-branch not found');
+}
+
 export async function listTeams(branchId: string | undefined, params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
   if (branchId) filter.branchId = branchId;
@@ -96,4 +106,9 @@ export async function updateTeam(id: string, data: Record<string, unknown>) {
   const team = await TeamModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   if (!team) throw new NotFoundError('Team not found');
   return team;
+}
+
+export async function deleteTeam(id: string) {
+  const team = await TeamModel.findByIdAndDelete(id);
+  if (!team) throw new NotFoundError('Team not found');
 }

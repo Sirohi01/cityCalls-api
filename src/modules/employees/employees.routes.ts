@@ -11,5 +11,6 @@ router.get('/employees', authMiddleware, requirePermission('employees', 'view'),
 router.get('/employees/:id', authMiddleware, requirePermission('employees', 'view'), ctrl.getEmployeeHandler);
 router.post('/employees', authMiddleware, requirePermission('employees', 'create'), validate(createEmployeeSchema), ctrl.createEmployeeHandler);
 router.patch('/employees/:id', authMiddleware, requirePermission('employees', 'edit'), validate(updateEmployeeSchema), ctrl.updateEmployeeHandler);
+router.delete('/employees/:id', authMiddleware, requirePermission('employees', 'edit'), ctrl.deleteEmployeeHandler);
 
 export default router;

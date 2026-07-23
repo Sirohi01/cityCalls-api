@@ -21,6 +21,7 @@ router.get('/service-requests', authMiddleware, requirePermission('serviceReques
 router.get('/service-requests/:id', authMiddleware, requirePermission('serviceRequests', 'view'), ctrl.getServiceRequestHandler);
 router.post('/service-requests', authMiddleware, requirePermission('serviceRequests', 'create'), validate(createServiceRequestSchema), ctrl.createServiceRequestHandler);
 router.patch('/service-requests/:id/status', authMiddleware, requirePermission('serviceRequests', 'edit'), validate(changeStatusSchema), ctrl.changeStatusHandler);
+router.delete('/service-requests/:id', authMiddleware, requirePermission('serviceRequests', 'edit'), ctrl.deleteServiceRequestHandler);
 router.post('/service-requests/:id/assign', authMiddleware, requirePermission('serviceRequests', 'assign'), validate(assignSchema), ctrl.assignHandler);
 router.post('/service-requests/:id/reassign', authMiddleware, requirePermission('serviceRequests', 'assign'), validate(reassignSchema), ctrl.reassignHandler);
 router.get('/service-requests/:id/assignment-candidates', authMiddleware, requirePermission('serviceRequests', 'assign'), ctrl.assignmentCandidatesHandler);

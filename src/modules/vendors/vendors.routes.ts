@@ -24,6 +24,7 @@ router.patch(
   validate(blacklistVendorSchema),
   ctrl.setBlacklistHandler
 );
+router.delete('/vendors/:id', authMiddleware, requirePermission('vendors', 'edit'), ctrl.deleteVendorHandler);
 router.get('/vendors/:id/technicians', authMiddleware, requirePermission('vendors', 'view'), ctrl.listVendorTechniciansHandler);
 router.post(
   '/vendors/:id/technicians',

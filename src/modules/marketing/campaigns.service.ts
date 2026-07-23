@@ -119,3 +119,14 @@ export async function sendCampaignNow(id: string, actor: AccessTokenPayload) {
 
   return campaign;
 }
+
+export async function updateCampaign(id: string, data: Record<string, unknown>) {
+  const campaign = await CampaignModel.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  if (!campaign) throw new NotFoundError('Campaign not found');
+  return campaign;
+}
+
+export async function deleteCampaign(id: string) {
+  const campaign = await CampaignModel.findByIdAndDelete(id);
+  if (!campaign) throw new NotFoundError('Campaign not found');
+}

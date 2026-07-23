@@ -49,6 +49,15 @@ export async function updateServiceHandler(req: ScopedRequest, res: Response, ne
   }
 }
 
+export async function deleteServiceHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await catalogService.deleteService(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Service deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 // PIN_CODE_NOT_SERVICEABLE / SERVICE_NOT_ACTIVE are informational business
 // outcomes, not errors — returned as 200 with a flag, per docs/18 §6.
 export async function checkCoverageHandler(req: ScopedRequest, res: Response, next: NextFunction) {

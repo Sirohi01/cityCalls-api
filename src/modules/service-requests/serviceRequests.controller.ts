@@ -36,6 +36,19 @@ export async function createServiceRequestHandler(req: ScopedRequest, res: Respo
     next(err);
   }
 }
+
+export async function deleteServiceRequestHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const sr = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
+    await srService.deleteServiceRequest(id, req.user);
+    sendSuccess(res, null, 'Service request deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
 export async function changeStatusHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new UnauthorizedError();

@@ -41,3 +41,21 @@ export async function sendCampaignHandler(req: ScopedRequest, res: Response, nex
     next(err);
   }
 }
+
+export async function updateCampaignHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const campaign = await campaignsService.updateCampaign(paramAsString(req.params.id), req.body);
+    sendSuccess(res, campaign, 'Campaign updated successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteCampaignHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await campaignsService.deleteCampaign(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Campaign deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}

@@ -21,6 +21,7 @@ router.get('/customers/me', authMiddleware, requirePermission('customers', 'view
 router.get('/customers/:id', authMiddleware, requirePermission('customers', 'view'), ctrl.getCustomerHandler);
 router.post('/customers', authMiddleware, requirePermission('customers', 'create'), validate(createCustomerSchema), ctrl.createCustomerHandler);
 router.patch('/customers/:id', authMiddleware, requirePermission('customers', 'edit'), validate(updateCustomerSchema), ctrl.updateCustomerHandler);
+router.delete('/customers/:id', authMiddleware, requirePermission('customers', 'edit'), ctrl.deleteCustomerHandler);
 router.post('/customers/:id/addresses', authMiddleware, requirePermission('customers', 'edit'), validate(addAddressSchema), ctrl.addAddressHandler);
 router.patch('/customers/:id/addresses/:addressId', authMiddleware, requirePermission('customers', 'edit'), validate(updateAddressSchema), ctrl.updateAddressHandler);
 router.delete('/customers/:id/addresses/:addressId', authMiddleware, requirePermission('customers', 'edit'), ctrl.deleteAddressHandler);

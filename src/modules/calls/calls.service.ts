@@ -72,3 +72,8 @@ export async function updateCall(id: string, data: Record<string, unknown>) {
 export async function getCallsForCustomer(customerId: string) {
   return CallModel.find({ customerId }).sort({ callDate: -1 });
 }
+
+export async function deleteCall(id: string) {
+  const call = await CallModel.findByIdAndDelete(id);
+  if (!call) throw new NotFoundError('Call not found');
+}

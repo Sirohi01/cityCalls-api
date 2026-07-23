@@ -41,6 +41,15 @@ export async function updateBranchHandler(req: ScopedRequest, res: Response, nex
   }
 }
 
+export async function deleteBranchHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await orgService.deleteBranch(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Branch deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listSubBranchesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user || !req.scope) throw new UnauthorizedError();
@@ -70,6 +79,15 @@ export async function updateSubBranchHandler(req: ScopedRequest, res: Response, 
   }
 }
 
+export async function deleteSubBranchHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await orgService.deleteSubBranch(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Sub-branch deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listTeamsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user || !req.scope) throw new UnauthorizedError();
@@ -94,6 +112,15 @@ export async function updateTeamHandler(req: ScopedRequest, res: Response, next:
   try {
     const team = await orgService.updateTeam(paramAsString(req.params.id), req.body);
     sendSuccess(res, team, 'Team updated successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteTeamHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await orgService.deleteTeam(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Team deleted successfully');
   } catch (err) {
     next(err);
   }

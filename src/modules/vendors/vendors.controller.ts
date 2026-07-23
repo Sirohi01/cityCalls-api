@@ -49,6 +49,15 @@ export async function setBlacklistHandler(req: ScopedRequest, res: Response, nex
   }
 }
 
+export async function deleteVendorHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await vendorService.deleteVendor(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Vendor deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listVendorTechniciansHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const technicians = await vendorService.listVendorTechnicians(paramAsString(req.params.id));

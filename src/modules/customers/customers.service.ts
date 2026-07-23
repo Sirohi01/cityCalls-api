@@ -123,6 +123,11 @@ export async function updateCustomer(id: string, data: Record<string, unknown>) 
   return customer;
 }
 
+export async function deleteCustomer(id: string) {
+  const customer = await CustomerModel.findByIdAndDelete(id);
+  if (!customer) throw new NotFoundError('Customer not found');
+}
+
 export async function addAddress(id: string, address: Record<string, unknown>) {
   const customer = await CustomerModel.findByIdAndUpdate(
     id,

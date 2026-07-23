@@ -24,15 +24,18 @@ router.get('/branches', authMiddleware, requirePermission('organization', 'view'
 router.get('/branches/:id', authMiddleware, requirePermission('organization', 'view'), ctrl.getBranchHandler);
 router.post('/branches', authMiddleware, requirePermission('organization', 'create'), validate(createBranchSchema), ctrl.createBranchHandler);
 router.patch('/branches/:id', authMiddleware, requirePermission('organization', 'edit'), validate(updateBranchSchema), ctrl.updateBranchHandler);
+router.delete('/branches/:id', authMiddleware, requirePermission('organization', 'edit'), ctrl.deleteBranchHandler);
 
 // Sub-branches
 router.get('/sub-branches', authMiddleware, requirePermission('organization', 'view'), validate(listQuerySchema, 'query'), ctrl.listSubBranchesHandler);
 router.post('/sub-branches', authMiddleware, requirePermission('organization', 'create'), validate(createSubBranchSchema), ctrl.createSubBranchHandler);
 router.patch('/sub-branches/:id', authMiddleware, requirePermission('organization', 'edit'), validate(updateSubBranchSchema), ctrl.updateSubBranchHandler);
+router.delete('/sub-branches/:id', authMiddleware, requirePermission('organization', 'edit'), ctrl.deleteSubBranchHandler);
 
 // Teams
 router.get('/teams', authMiddleware, requirePermission('organization', 'view'), validate(listQuerySchema, 'query'), ctrl.listTeamsHandler);
 router.post('/teams', authMiddleware, requirePermission('organization', 'create'), validate(createTeamSchema), ctrl.createTeamHandler);
 router.patch('/teams/:id', authMiddleware, requirePermission('organization', 'edit'), validate(updateTeamSchema), ctrl.updateTeamHandler);
+router.delete('/teams/:id', authMiddleware, requirePermission('organization', 'edit'), ctrl.deleteTeamHandler);
 
 export default router;

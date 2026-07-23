@@ -40,3 +40,12 @@ export async function updateEmployeeHandler(req: ScopedRequest, res: Response, n
     next(err);
   }
 }
+
+export async function deleteEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    await employeeService.deleteEmployee(paramAsString(req.params.id));
+    sendSuccess(res, null, 'Employee deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}

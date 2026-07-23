@@ -42,6 +42,11 @@ export async function updateVendor(id: string, data: Record<string, unknown>) {
   return vendor;
 }
 
+export async function deleteVendor(id: string) {
+  const vendor = await VendorModel.findByIdAndDelete(id);
+  if (!vendor) throw new NotFoundError('Vendor not found');
+}
+
 export async function setBlacklistStatus(id: string, blacklisted: boolean, reason?: string) {
   const vendor = await VendorModel.findByIdAndUpdate(
     id,

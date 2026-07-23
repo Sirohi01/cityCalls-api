@@ -25,5 +25,6 @@ router.patch('/leads/:id', authMiddleware, requirePermission('leads', 'edit'), v
 router.patch('/leads/:id/stage', authMiddleware, requirePermission('leads', 'edit'), validate(changeLeadStageSchema), ctrl.changeStageHandler);
 router.post('/leads/:id/notes', authMiddleware, requirePermission('leads', 'edit'), validate(addLeadNoteSchema), ctrl.addNoteHandler);
 router.post('/leads/:id/convert', authMiddleware, requirePermission('leads', 'edit'), validate(convertLeadSchema), ctrl.convertLeadHandler);
+router.delete('/leads/:id', authMiddleware, requirePermission('leads', 'edit'), ctrl.deleteLeadHandler);
 
 export default router;

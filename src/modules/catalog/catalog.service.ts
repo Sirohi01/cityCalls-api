@@ -60,6 +60,11 @@ export async function updateService(id: string, data: Record<string, unknown>) {
   return service;
 }
 
+export async function deleteService(id: string) {
+  const service = await ServiceModel.findByIdAndDelete(id);
+  if (!service) throw new NotFoundError('Service not found');
+}
+
 // Per docs/06-complete-workflow-document.md Stage 1: check pin-code coverage
 // before allowing the customer app to progress past service selection.
 export async function checkCoverage(serviceId: string, pinCode: string) {
