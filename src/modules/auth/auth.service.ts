@@ -154,6 +154,14 @@ export async function requestOtp(mobile: string): Promise<void> {
   });
 
   await trigger('OTP_LOGIN', { recipient: { mobile }, variables: { otp } });
+
+  // AiSensy (WhatsApp) isn't wired up yet, so trigger() above silently records
+  // SKIPPED_INTEGRATION_DISABLED — the OTP never actually reaches anyone.
+  // Print it to the server console outside production so the customer app is
+  // testable end-to-end without a real WhatsApp/SMS provider.
+  if (env.nodeEnv !== 'production') {
+    console.log(`[dev] OTP for ${mobile}: ${otp}`);
+  }
 }
 
 export async function verifyOtp(mobile: string, otp: string, meta: SessionMeta): Promise<AuthResult> {
