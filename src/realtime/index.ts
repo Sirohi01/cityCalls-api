@@ -2,6 +2,8 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { verifyAccessToken } from '../lib/jwt';
 import { env } from '../config/env';
+import { isCustomerRole, resolveOwnCustomerId } from '../lib/ownCustomerScope';
+import { ServiceRequestModel } from '../modules/service-requests/serviceRequests.model';
 
 // Rooms and events per docs/08-system-architecture.md §4. Real-time is required
 // from day one, not deferred — this module is wired in server.ts at boot.
@@ -28,6 +30,36 @@ export function initRealtime(httpServer: HttpServer): SocketIOServer {
     const user = socket.data.user;
     socket.join(`user:${user.sub}:notifications`);
     if (user.branchId) socket.join(`branch:${user.branchId}:dashboard`);
+
+    // Per-request rooms (service-request.status-changed, .assigned,
+    // technician.location-updated) aren't auto-joined at connection — a
+    // client only cares about specific requests it's viewing. Mirrors
+    // assertOwnServiceRequestAccess's REST-side check: a CUSTOMER/
+    // BUSINESS_CUSTOMER caller may only join a room for their own Service
+    // Request; other roles (staff/technician) aren't scoped here yet, same
+    // gap as the REST side for those roles.
+    socket.on('service-request:join', async (serviceRequestId: unknown, ack?: (ok: boolean) => void) => {
+      try {
+        if (typeof serviceRequestId !== 'string' || !serviceRequestId) return ack?.(false);
+        if (isCustomerRole(user.role)) {
+          const sr = await ServiceRequestModel.findById(serviceRequestId).select('customerId');
+          const ownCustomerId = await resolveOwnCustomerId(user.sub);
+          if (!sr || !ownCustomerId || sr.customerId.toString() !== ownCustomerId) {
+            return ack?.(false);
+          }
+        }
+        socket.join(`service-request:${serviceRequestId}`);
+        ack?.(true);
+      } catch {
+        ack?.(false);
+      }
+    });
+
+    socket.on('service-request:leave', (serviceRequestId: unknown) => {
+      if (typeof serviceRequestId === 'string' && serviceRequestId) {
+        socket.leave(`service-request:${serviceRequestId}`);
+      }
+    });
   });
 
   return io;

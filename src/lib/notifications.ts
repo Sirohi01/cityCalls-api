@@ -3,6 +3,7 @@ import { UserModel } from '../modules/users/users.model';
 import { CustomerModel } from '../modules/customers/customers.model';
 import { isEmailEnabled, sendEmail } from './emailAdapter';
 import { isWhatsAppEnabled, sendWhatsApp } from './whatsappAdapter';
+import { isPushEnabled, sendPush } from './pushAdapter';
 import { emitNotificationNew } from '../realtime';
 
 export interface TriggerRecipient {
@@ -28,10 +29,17 @@ interface ResolvedContact {
   userId?: string;
   mobile?: string;
   email?: string;
+  customerId?: string;
+  fcmTokens?: string[];
 }
 
 async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedContact> {
-  const resolved: ResolvedContact = { userId: recipient.userId, mobile: recipient.mobile, email: recipient.email };
+  const resolved: ResolvedContact = {
+    userId: recipient.userId,
+    mobile: recipient.mobile,
+    email: recipient.email,
+    customerId: recipient.customerId,
+  };
 
   if (recipient.userId && (!resolved.mobile || !resolved.email)) {
     const user = await UserModel.findById(recipient.userId).lean();
@@ -41,13 +49,14 @@ async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedCont
     }
   }
 
-  if (recipient.customerId && (!resolved.mobile || !resolved.email)) {
+  if (recipient.customerId) {
     const customer = await CustomerModel.findById(recipient.customerId).lean();
     if (customer) {
       const primaryContact = customer.contacts.find((c) => c.isPrimary) ?? customer.contacts[0];
       resolved.mobile = resolved.mobile ?? primaryContact?.mobile;
       resolved.email = resolved.email ?? customer.email;
       resolved.userId = resolved.userId ?? customer.userId?.toString();
+      resolved.fcmTokens = customer.fcmTokens;
     }
   }
 
@@ -137,8 +146,28 @@ async function deliverOne(
         }
         break;
       }
+      case 'PUSH': {
+        if (!isPushEnabled()) {
+          notification.status = 'SKIPPED_INTEGRATION_DISABLED';
+        } else if (!contact.fcmTokens || contact.fcmTokens.length === 0) {
+          notification.status = 'FAILED';
+          notification.failureReason = 'No push token registered for recipient';
+        } else {
+          const result = await sendPush({ tokens: contact.fcmTokens, title: subject ?? 'CityCalls', body, data: { triggerKey } });
+          if (result.invalidTokens.length > 0 && contact.customerId) {
+            await CustomerModel.updateOne({ _id: contact.customerId }, { $pull: { fcmTokens: { $in: result.invalidTokens } } });
+          }
+          if (result.successCount > 0) {
+            notification.status = 'SENT';
+            notification.sentAt = new Date();
+          } else {
+            notification.status = 'FAILED';
+            notification.failureReason = 'All tokens rejected by FCM';
+          }
+        }
+        break;
+      }
       case 'SMS':
-      case 'PUSH':
         // Interface-ready, no provider selected yet — docs/14-integration-architecture.md §6-7.
         notification.status = 'SKIPPED_INTEGRATION_DISABLED';
         break;

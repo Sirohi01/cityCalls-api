@@ -223,3 +223,18 @@ export async function updateConsent(
 
   return customer;
 }
+
+// $addToSet/$pull rather than load-modify-save — avoids a duplicate-token
+// race if the app calls this more than once in quick succession (e.g. app
+// resume immediately after login), and needs no read step at all.
+export async function registerFcmToken(id: string, token: string) {
+  const customer = await CustomerModel.findByIdAndUpdate(id, { $addToSet: { fcmTokens: token } }, { new: true });
+  if (!customer) throw new NotFoundError('Customer not found');
+  return customer;
+}
+
+export async function unregisterFcmToken(id: string, token: string) {
+  const customer = await CustomerModel.findByIdAndUpdate(id, { $pull: { fcmTokens: token } }, { new: true });
+  if (!customer) throw new NotFoundError('Customer not found');
+  return customer;
+}

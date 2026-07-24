@@ -9,6 +9,7 @@ import {
   updateAddressSchema,
   addProductSchema,
   updateConsentSchema,
+  fcmTokenSchema,
   listCustomersQuerySchema,
 } from './customers.validation';
 import * as ctrl from './customers.controller';
@@ -29,5 +30,7 @@ router.get('/customers/:id/history', authMiddleware, requirePermission('customer
 router.get('/customers/:id/products', authMiddleware, requirePermission('customers', 'view'), ctrl.listProductsHandler);
 router.post('/customers/:id/products', authMiddleware, requirePermission('customers', 'edit'), validate(addProductSchema), ctrl.addProductHandler);
 router.patch('/customers/:id/consent', authMiddleware, requirePermission('customers', 'edit'), validate(updateConsentSchema), ctrl.updateConsentHandler);
+router.post('/customers/me/fcm-token', authMiddleware, requirePermission('customers', 'edit'), validate(fcmTokenSchema), ctrl.registerFcmTokenHandler);
+router.delete('/customers/me/fcm-token', authMiddleware, requirePermission('customers', 'edit'), validate(fcmTokenSchema), ctrl.unregisterFcmTokenHandler);
 
 export default router;

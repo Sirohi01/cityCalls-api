@@ -43,6 +43,17 @@ export const env = {
     geminiApiKey: process.env.GEMINI_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
   },
+  // Service account credentials for the Firebase Admin SDK (push
+  // notifications) — distinct from the mobile app's google-services.json,
+  // which only configures the client SDK. Either point to a downloaded
+  // service-account JSON file, or (e.g. for hosts where managing an extra
+  // file is awkward) paste its full contents into FIREBASE_SERVICE_ACCOUNT_JSON
+  // directly; the JSON env var wins if both are set.
+  firebase: {
+    enabled: process.env.FIREBASE_ENABLED === 'true',
+    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+    serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+  },
 } as const;
 
 if (env.nodeEnv === 'production') {

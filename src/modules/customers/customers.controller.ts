@@ -43,6 +43,34 @@ export async function getOwnCustomerHandler(req: ScopedRequest, res: Response, n
   }
 }
 
+// "me"-scoped, not :id + ownership-check — resolving the caller's own
+// Customer record via findOrCreateOwnCustomer already guarantees the token
+// can only ever affect the caller's own document, so there's no separate
+// scope check needed here (unlike every :id-taking handler above).
+export async function registerFcmTokenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { token } = req.body as { token: string };
+    const customer = await customerService.findOrCreateOwnCustomer(req.user.sub);
+    await customerService.registerFcmToken(customer.id, token);
+    sendSuccess(res, null, 'Push token registered successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function unregisterFcmTokenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { token } = req.body as { token: string };
+    const customer = await customerService.findOrCreateOwnCustomer(req.user.sub);
+    await customerService.unregisterFcmToken(customer.id, token);
+    sendSuccess(res, null, 'Push token unregistered successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function findDuplicatesHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const { mobile, gstin, businessName, name } = req.query as Record<string, string | undefined>;

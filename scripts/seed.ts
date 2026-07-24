@@ -351,25 +351,35 @@ const NOTIFICATION_TEMPLATES: TemplateRow[] = [
   { triggerKey: 'SERVICE_REQUEST_CREATED', channel: 'EMAIL', subjectTemplate: 'Service Request {{number}} Received', bodyTemplate: '<p>Your service request <strong>{{number}}</strong> has been received and is being reviewed.</p>', variables: ['number'] },
 
   { triggerKey: 'SERVICE_REQUEST_ASSIGNED', channel: 'IN_APP', bodyTemplate: 'Service request {{serviceRequestId}} has been assigned to you.', variables: ['serviceRequestId'] },
+  { triggerKey: 'SERVICE_REQUEST_ASSIGNED', channel: 'PUSH', bodyTemplate: 'A technician has been assigned to your service request.', variables: [] },
 
   { triggerKey: 'SERVICE_REQUEST_TECHNICIAN_EN_ROUTE', channel: 'IN_APP', bodyTemplate: 'Your technician is on the way.', variables: [] },
   { triggerKey: 'SERVICE_REQUEST_TECHNICIAN_EN_ROUTE', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls technician is on the way for {{status}}.', variables: ['status'] },
+  { triggerKey: 'SERVICE_REQUEST_TECHNICIAN_EN_ROUTE', channel: 'PUSH', bodyTemplate: 'Your technician is on the way.', variables: [] },
 
   { triggerKey: 'SERVICE_REQUEST_SERVICE_COMPLETED', channel: 'IN_APP', bodyTemplate: 'Your service has been marked complete. Please confirm.', variables: [] },
+  { triggerKey: 'SERVICE_REQUEST_SERVICE_COMPLETED', channel: 'PUSH', bodyTemplate: 'Your service has been marked complete. Please confirm.', variables: [] },
 
   { triggerKey: 'SERVICE_REQUEST_CLOSED', channel: 'IN_APP', bodyTemplate: 'Your service request has been closed. Thank you!', variables: [] },
+  { triggerKey: 'SERVICE_REQUEST_CLOSED', channel: 'PUSH', bodyTemplate: 'Your service request has been closed. Thank you!', variables: [] },
+
+  { triggerKey: 'SERVICE_REQUEST_RESCHEDULED', channel: 'IN_APP', bodyTemplate: 'Your appointment has been rescheduled.', variables: [] },
+  { triggerKey: 'SERVICE_REQUEST_RESCHEDULED', channel: 'PUSH', bodyTemplate: 'Your appointment has been rescheduled.', variables: [] },
 
   { triggerKey: 'ESTIMATE_SHARED', channel: 'IN_APP', bodyTemplate: 'An estimate for {{total}} has been shared with you. Please review and approve.', variables: ['estimateId', 'number', 'total'] },
   { triggerKey: 'ESTIMATE_SHARED', channel: 'EMAIL', subjectTemplate: 'Estimate {{number}} for Your Approval', bodyTemplate: '<p>An estimate of <strong>₹{{total}}</strong> has been shared for your service request. Please review and approve.</p>', variables: ['number', 'total'] },
   { triggerKey: 'ESTIMATE_SHARED', channel: 'WHATSAPP', bodyTemplate: 'An estimate of Rs.{{total}} has been shared for your CityCalls request. Please check the app to approve.', variables: ['total'] },
+  { triggerKey: 'ESTIMATE_SHARED', channel: 'PUSH', bodyTemplate: 'An estimate of ₹{{total}} has been shared for your service request.', variables: ['total'] },
 
   { triggerKey: 'PROFORMA_INVOICE_SHARED', channel: 'IN_APP', bodyTemplate: 'A proforma invoice {{number}} has been shared with you.', variables: ['proformaInvoiceId', 'number'] },
 
   { triggerKey: 'INVOICE_GENERATED', channel: 'IN_APP', bodyTemplate: 'Invoice {{number}} for ₹{{total}} has been generated.', variables: ['invoiceId', 'number', 'total'] },
   { triggerKey: 'INVOICE_GENERATED', channel: 'EMAIL', subjectTemplate: 'Invoice {{number}}', bodyTemplate: '<p>Your invoice <strong>{{number}}</strong> for ₹{{total}} is attached.</p>', variables: ['number', 'total'] },
+  { triggerKey: 'INVOICE_GENERATED', channel: 'PUSH', bodyTemplate: 'Invoice {{number}} for ₹{{total}} has been generated.', variables: ['number', 'total'] },
 
   { triggerKey: 'PAYMENT_RECEIVED', channel: 'IN_APP', bodyTemplate: 'Payment of ₹{{amount}} received for receipt {{receiptNumber}}.', variables: ['invoiceId', 'receiptNumber', 'amount'] },
   { triggerKey: 'PAYMENT_RECEIVED', channel: 'WHATSAPP', bodyTemplate: 'We have received your payment of Rs.{{amount}}. Thank you!', variables: ['amount'] },
+  { triggerKey: 'PAYMENT_RECEIVED', channel: 'PUSH', bodyTemplate: 'Payment of ₹{{amount}} received. Thank you!', variables: ['amount'] },
 
   { triggerKey: 'COMPLAINT_REOPENED', channel: 'IN_APP', bodyTemplate: 'A service request you handled has been reopened by the customer.', variables: ['originalServiceRequestId', 'newServiceRequestId'] },
 

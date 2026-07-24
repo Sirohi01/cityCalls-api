@@ -17,6 +17,7 @@ interface IRequiredImages {
 
 export interface IService extends Document {
   name: string;
+  description?: string;
   categoryId: Types.ObjectId; // Master (SERVICE_CATEGORY)
   subCategoryId?: Types.ObjectId;
   applicableBrandIds: Types.ObjectId[];
@@ -46,6 +47,7 @@ export interface IService extends Document {
 const serviceSchema = new Schema<IService>(
   {
     name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Master', required: true },
     subCategoryId: { type: Schema.Types.ObjectId, ref: 'Master' },
     applicableBrandIds: [{ type: Schema.Types.ObjectId, ref: 'Master' }],

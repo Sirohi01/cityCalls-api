@@ -45,6 +45,11 @@ export interface ICustomer extends Document {
   };
   blacklisted: boolean;
   duplicateOfCustomerId?: Types.ObjectId;
+  // Multiple tokens — a customer may be logged in on more than one device.
+  // sendEachForMulticast (pushAdapter.ts) sends to all of them; individual
+  // stale/invalid tokens returned by FCM just fail silently per-token rather
+  // than failing the whole notification.
+  fcmTokens: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +93,7 @@ const customerSchema = new Schema<ICustomer>(
     },
     blacklisted: { type: Boolean, default: false },
     duplicateOfCustomerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+    fcmTokens: { type: [String], default: [] },
   },
   { timestamps: true }
 );

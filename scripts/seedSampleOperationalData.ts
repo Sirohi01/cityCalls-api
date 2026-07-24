@@ -5,6 +5,7 @@ import { EmployeeModel } from '../src/modules/employees/employees.model';
 import { BranchModel } from '../src/modules/organization/organization.model';
 import { MasterModel } from '../src/modules/config/master.model';
 import { ServiceModel } from '../src/modules/catalog/catalog.model';
+import { FileModel } from '../src/modules/files/files.model';
 import { CustomerModel } from '../src/modules/customers/customers.model';
 import { LeadModel, LEAD_STAGES, LeadStage } from '../src/modules/leads/leads.model';
 import { CallModel, CALL_TYPES, CallType } from '../src/modules/calls/calls.model';
@@ -167,36 +168,49 @@ async function main() {
   // --- Service catalog ---
   console.log('[seed-sample] creating service catalog entries...');
   const serviceDefs = [
-    ['AC Repair & Gas Refilling', 'AC_REPAIR_SERVICE', 1499],
-    ['AC Installation', 'AC_REPAIR_SERVICE', 1999],
-    ['Refrigerator Repair', 'APPLIANCE_REPAIR', 899],
-    ['Washing Machine Repair', 'APPLIANCE_REPAIR', 799],
-    ['Water Purifier Service', 'WATER_PURIFIER', 599],
-    ['Chimney Deep Cleaning', 'CHIMNEY_KITCHEN', 899],
-    ['Geyser Repair', 'GEYSER_REPAIR', 699],
-    ['Electrical Wiring Fix', 'ELECTRICIAN', 399],
-    ['Tap & Pipe Repair', 'PLUMBER', 349],
-    ['Modular Furniture Repair', 'CARPENTER', 599],
-    ['Full Home Painting', 'PAINTING_WATERPROOFING', 12999],
-    ['General Pest Control', 'PEST_CONTROL', 1299],
-    ['Home Deep Cleaning', 'HOME_DEEP_CLEANING', 2499],
-    ['Sofa Cleaning', 'SOFA_CARPET_CLEANING', 999],
-    ["Women's Salon at Home", 'SALON_FOR_WOMEN', 799],
+    ['AC Repair & Gas Refilling', 'AC_REPAIR_SERVICE', 1499, 'Full diagnostic check, gas top-up, and cooling performance restoration by a certified AC technician — done at your home.', 90],
+    ['AC Installation', 'AC_REPAIR_SERVICE', 1999, 'Professional split/window AC installation including mounting, piping, and a post-install cooling check.', 120],
+    ['Refrigerator Repair', 'APPLIANCE_REPAIR', 899, 'Diagnosis and repair of cooling issues, unusual noise, or leakage for all major refrigerator brands.', 60],
+    ['Washing Machine Repair', 'APPLIANCE_REPAIR', 799, 'Fixes for drainage, spin cycle, and motor issues on both front-load and top-load washing machines.', 60],
+    ['Water Purifier Service', 'WATER_PURIFIER', 599, 'Filter replacement, tank cleaning, and full performance check to keep your purifier running safely.', 45],
+    ['Chimney Deep Cleaning', 'CHIMNEY_KITCHEN', 899, 'Degreasing and deep cleaning of chimney filters and motor for better suction and less kitchen smoke.', 75],
+    ['Geyser Repair', 'GEYSER_REPAIR', 699, 'Heating element, thermostat, and tank inspection to fix slow heating or water leakage issues.', 60],
+    ['Electrical Wiring Fix', 'ELECTRICIAN', 399, 'Safe diagnosis and repair of switchboards, short circuits, and faulty home wiring by a licensed electrician.', 45],
+    ['Tap & Pipe Repair', 'PLUMBER', 349, 'Leak fixes, tap replacement, and pipe repair work for kitchens and bathrooms.', 45],
+    ['Modular Furniture Repair', 'CARPENTER', 599, 'Hinge, drawer, and modular fitting repairs to restore wardrobes, cabinets, and furniture.', 60],
+    ['Full Home Painting', 'PAINTING_WATERPROOFING', 12999, 'End-to-end interior painting service including surface prep, putty work, and two coats of your chosen finish.', 480],
+    ['General Pest Control', 'PEST_CONTROL', 1299, 'Whole-home pest treatment for cockroaches, ants, and common household pests using safe-for-family sprays.', 90],
+    ['Home Deep Cleaning', 'HOME_DEEP_CLEANING', 2499, 'Detailed deep cleaning of kitchens, bathrooms, and living spaces — including hard-to-reach corners and fixtures.', 180],
+    ['Sofa Cleaning', 'SOFA_CARPET_CLEANING', 999, 'Deep shampoo and vacuum cleaning for sofas and carpets to remove stains, dust, and odour.', 90],
+    ["Women's Salon at Home", 'SALON_FOR_WOMEN', 799, 'Professional salon services — haircut, styling, waxing, and more — delivered at your doorstep by a trained beautician.', 60],
   ] as const;
 
   const services = [];
-  for (const [name, categoryKey, basePrice] of serviceDefs) {
+  for (const [name, categoryKey, basePrice, description, expectedDurationMinutes] of serviceDefs) {
     const category = categories.find((c) => c.key === categoryKey);
     if (!category) continue;
-    services.push(
-      await ServiceModel.create({
-        name,
-        categoryId: category._id,
-        pricing: { basePrice, visitingCharge: 99, inspectionCharge: 0, emergencyCharge: 299 },
-        slaMinutes: randomInt(120, 1440),
-        active: true,
-      })
-    );
+    const service = await ServiceModel.create({
+      name,
+      description,
+      categoryId: category._id,
+      pricing: { basePrice, visitingCharge: 99, inspectionCharge: 0, emergencyCharge: 299 },
+      expectedDurationMinutes,
+      slaMinutes: randomInt(120, 1440),
+      active: true,
+    });
+    services.push(service);
+    const imageSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    await FileModel.create({
+      category: 'CATALOG_IMAGE',
+      entityType: 'SERVICE',
+      entityId: service._id,
+      provider: 'CLOUDINARY',
+      key: `seed/${imageSlug}`,
+      url: `https://picsum.photos/seed/${imageSlug}/800/600`,
+      mimeType: 'image/jpeg',
+      sizeBytes: 0,
+      uploadedBy: branchManagers[0]._id,
+    });
   }
 
   // --- Customers ---

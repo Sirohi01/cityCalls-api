@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const createServiceSchema = z.object({
   name: z.string().min(2),
+  description: z.string().optional(),
   categoryId: z.string(),
   subCategoryId: z.string().optional(),
   applicableBrandIds: z.array(z.string()).default([]),
@@ -31,6 +32,7 @@ export const createServiceSchema = z.object({
 
 export const updateServiceSchema = z.object({
   name: z.string().min(2).optional(),
+  description: z.string().optional(),
   categoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
   applicableBrandIds: z.array(z.string()).optional(),
