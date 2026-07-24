@@ -26,7 +26,7 @@ function allFor(role: Role, modules: string[], actions: string[], dataScope: Dat
   return rows;
 }
 
-const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai', 'reports'];
+const ALL_BUILT_MODULES = ['users', 'organization', 'config', 'employees', 'vendors', 'customers', 'catalog', 'calls', 'leads', 'serviceRequests', 'fieldExecution', 'files', 'finance', 'happyCalls', 'marketing', 'ai', 'reports', 'complaints'];
 const EXPORTABLE_MODULES = ['customers', 'leads', 'serviceRequests', 'calls', 'finance'];
 const IMPORTABLE_MODULES = ['customers', 'leads'];
 const CRUD = ['view', 'create', 'edit'];
@@ -52,6 +52,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BRANCH_MANAGER', ['files'], ['view', 'create'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['finance'], ['view', 'create', 'edit', 'viewFinancial'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
+  ...allFor('BRANCH_MANAGER', ['complaints'], ['view', 'edit'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['marketing'], ['view'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['ai'], ['create'], 'BRANCH'),
   ...allFor('BRANCH_MANAGER', ['reports'], ['view'], 'BRANCH'),
@@ -94,6 +95,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['calls', 'customers', 'serviceRequests'], ['view', 'create', 'edit'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['ai'], ['create'], 'BRANCH'),
   ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['happyCalls'], ['view', 'edit'], 'BRANCH'),
+  ...allFor('CUSTOMER_SUPPORT_EXECUTIVE', ['complaints'], ['view', 'edit'], 'BRANCH'),
 
   // Sales Executive: owns their own leads and those leads' customers.
   ...allFor('SALES_EXECUTIVE', ['customers', 'leads'], ['view', 'create', 'edit'], 'OWN'),
@@ -153,6 +155,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
   ...allFor('CUSTOMER', ['files'], ['create'], 'OWN'), // issue images at booking time
   ...allFor('CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'), // view + approve/reject own estimates, view own invoices/receipts
+  ...allFor('CUSTOMER', ['complaints'], ['view', 'create'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['customers'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['catalog'], ['view'], 'ALL'),
   ...allFor('BUSINESS_CUSTOMER', ['config'], ['view'], 'ALL'),
@@ -160,6 +163,7 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('BUSINESS_CUSTOMER', ['fieldExecution', 'files'], ['view'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['finance'], ['view', 'edit'], 'OWN'),
   ...allFor('BUSINESS_CUSTOMER', ['files'], ['create'], 'OWN'),
+  ...allFor('BUSINESS_CUSTOMER', ['complaints'], ['view', 'create'], 'OWN'),
 ];
 
 // Lead stage transitions per docs/07-status-transition-matrix.md §3. "Owner" in
@@ -394,6 +398,9 @@ const NOTIFICATION_TEMPLATES: TemplateRow[] = [
   { triggerKey: 'OTP_LOGIN', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls OTP is {{otp}}. Valid for 5 minutes.', variables: ['otp'] },
 
   { triggerKey: 'SERVICE_COMPLETION_OTP', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls service completion OTP is {{otp}}. Share this with your technician to confirm completion.', variables: ['otp', 'serviceRequestId'] },
+
+  { triggerKey: 'COMPLAINT_RESPONDED', channel: 'IN_APP', bodyTemplate: 'You have a response to your complaint "{{subject}}".', variables: ['subject', 'status'] },
+  { triggerKey: 'COMPLAINT_RESPONDED', channel: 'PUSH', bodyTemplate: 'You have a response to your complaint "{{subject}}".', variables: ['subject', 'status'] },
 ];
 
 async function seed(): Promise<void> {
