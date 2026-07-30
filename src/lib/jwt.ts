@@ -9,6 +9,7 @@ export interface AccessTokenPayload {
   subBranchId?: string;
   teamId?: string;
   vendorId?: string;
+  employeeId?: string;
 }
 
 export interface RefreshTokenPayload {

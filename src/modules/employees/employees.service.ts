@@ -34,6 +34,17 @@ export async function getEmployee(id: string) {
   return employee;
 }
 
+// Employees are admin-created (unlike Customers, which upsert on first OTP
+// login) — this only looks up, never creates. Backs vendor-mobile's "my
+// profile" screen and lets the app resolve its own Employee._id (the id
+// ServiceRequest.assigneeId actually stores for EMPLOYEE assignments)
+// without trusting a client-supplied id.
+export async function getOwnEmployee(userId: string) {
+  const employee = await EmployeeModel.findOne({ userId }).populate('userId', 'name mobile email');
+  if (!employee) throw new NotFoundError('No employee record linked to this account');
+  return employee;
+}
+
 export async function createEmployee(data: Record<string, unknown>) {
   return EmployeeModel.create(data);
 }

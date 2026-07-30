@@ -14,6 +14,16 @@ export async function listEmployeesHandler(req: ScopedRequest, res: Response, ne
   }
 }
 
+export async function getOwnEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const employee = await employeeService.getOwnEmployee(req.user.sub);
+    sendSuccess(res, employee, 'Employee fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const employee = await employeeService.getEmployee(paramAsString(req.params.id));

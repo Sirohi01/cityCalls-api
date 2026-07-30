@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { UserModel, IUser } from '../users/users.model';
+import { EmployeeModel } from '../employees/employees.model';
 import { SessionModel } from './sessions.model';
 import { OtpModel } from './otp.model';
 import { PasswordResetModel } from './passwordReset.model';
@@ -48,6 +49,12 @@ async function issueTokens(user: IUser, meta: SessionMeta): Promise<AuthResult> 
     expiresAt: refreshExpiryDate(),
   });
 
+  let employeeId: string | undefined;
+  if (['EMPLOYEE', 'TECHNICIAN'].includes(user.role)) {
+    const employee = await EmployeeModel.findOne({ userId: user._id }).select('_id');
+    employeeId = employee?._id.toString();
+  }
+
   const accessToken = signAccessToken({
     sub: user._id.toString(),
     role: user.role,
@@ -55,6 +62,7 @@ async function issueTokens(user: IUser, meta: SessionMeta): Promise<AuthResult> 
     subBranchId: user.subBranchId?.toString(),
     teamId: user.teamId?.toString(),
     vendorId: user.vendorId?.toString(),
+    employeeId,
   });
   const refreshToken = signRefreshToken({ sub: user._id.toString(), sessionId: session._id.toString() });
 

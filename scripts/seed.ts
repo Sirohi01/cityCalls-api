@@ -73,10 +73,12 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('TEAM_LEAD', ['fieldExecution'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['customers'], ['view'], 'TEAM'),
   ...allFor('EMPLOYEE', ['catalog'], ['view'], 'ALL'),
+  ...allFor('EMPLOYEE', ['employees'], ['view'], 'OWN'), // GET /employees/me for vendor-mobile
   ...allFor('EMPLOYEE', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('EMPLOYEE', ['files'], ['create'], 'OWN'),
   ...allFor('EMPLOYEE', ['finance'], ['view', 'create', 'edit'], 'OWN'), // drafts estimates, records collections on own jobs
   ...allFor('EMPLOYEE', ['happyCalls'], ['view', 'edit'], 'OWN'), // default happy-call performer per happyCallScheduler.ts
+  ...allFor('TECHNICIAN', ['employees'], ['view'], 'OWN'), // GET /employees/me for vendor-mobile
   ...allFor('TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('TECHNICIAN', ['files'], ['create'], 'OWN'),
   ...allFor('TECHNICIAN', ['finance'], ['view', 'create', 'edit'], 'OWN'),

@@ -50,6 +50,7 @@ interface ListParams {
 }
 
 const CUSTOMER_ROLES_FOR_SCOPE = ['CUSTOMER', 'BUSINESS_CUSTOMER'];
+const EMPLOYEE_ROLES_FOR_SCOPE = ['EMPLOYEE', 'TECHNICIAN'];
 
 export async function listServiceRequests(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
@@ -66,6 +67,14 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   if (scope === 'OWN' && CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) {
     const ownCustomer = await CustomerModel.findOne({ userId: user.sub }).select('_id');
     filter.customerId = ownCustomer ? ownCustomer._id : null;
+  }
+  // Vendor-mobile's "My Jobs" list — a technician's own assigned jobs only,
+  // never trusting a client-supplied assigneeId for this. employeeId comes
+  // from the JWT (resolved at login, auth.service.ts's issueTokens), not the
+  // Employee._id a caller could pass in params.
+  if (scope === 'OWN' && EMPLOYEE_ROLES_FOR_SCOPE.includes(user.role)) {
+    filter.assigneeType = 'EMPLOYEE';
+    filter.assigneeId = user.employeeId ?? null;
   }
 
   const skip = (params.page - 1) * params.limit;
@@ -203,16 +212,27 @@ export async function getServiceRequest(id: string) {
   };
 }
 export async function assertOwnServiceRequestAccess(
-  sr: { customerId?: unknown },
+  sr: { customerId?: unknown; assigneeType?: unknown; assigneeId?: unknown },
   scope: DataScope,
   user: AccessTokenPayload
 ): Promise<void> {
-  if (scope !== 'OWN' || !CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) return;
-  const ownCustomer = await CustomerModel.findOne({ userId: user.sub }).select('_id');
-  const ownId = ownCustomer?._id?.toString();
-  const srCustomerId = (sr.customerId as { toString(): string } | undefined)?.toString();
-  if (!ownId || srCustomerId !== ownId) {
-    throw new NotFoundError('Service request not found');
+  if (scope !== 'OWN') return;
+
+  if (CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) {
+    const ownCustomer = await CustomerModel.findOne({ userId: user.sub }).select('_id');
+    const ownId = ownCustomer?._id?.toString();
+    const srCustomerId = (sr.customerId as { toString(): string } | undefined)?.toString();
+    if (!ownId || srCustomerId !== ownId) {
+      throw new NotFoundError('Service request not found');
+    }
+    return;
+  }
+
+  if (EMPLOYEE_ROLES_FOR_SCOPE.includes(user.role)) {
+    const srAssigneeId = (sr.assigneeId as { toString(): string } | undefined)?.toString();
+    if (sr.assigneeType !== 'EMPLOYEE' || !user.employeeId || srAssigneeId !== user.employeeId) {
+      throw new NotFoundError('Service request not found');
+    }
   }
 }
 async function resolveBranch(serviceId: string, pinCode: string): Promise<IBranch | null> {
