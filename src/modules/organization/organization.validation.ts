@@ -30,6 +30,7 @@ export const createBranchSchema = z.object({
   registeredAddress: registeredAddressSchema.optional(),
   gstin: z.string().optional(),
   holidays: z.array(z.coerce.date()).default([]),
+  dailyCapacityPerSlot: z.number().int().min(1).default(5),
   active: z.boolean().optional(),
 });
 
@@ -54,6 +55,7 @@ export const updateBranchSchema = z.object({
   registeredAddress: registeredAddressSchema.optional(),
   gstin: z.string().optional(),
   holidays: z.array(z.coerce.date()).optional(),
+  dailyCapacityPerSlot: z.number().int().min(1).optional(),
   active: z.boolean().optional(),
 });
 

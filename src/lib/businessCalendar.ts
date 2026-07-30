@@ -34,6 +34,17 @@ function getWorkingWindow(date: Date, branch: Pick<IBranch, 'workingHours' | 'ho
   };
 }
 
+// Whether a branch is open (non-holiday, non-closed weekday, working hours
+// configured) on the given calendar date — used by appointment-slots to hide
+// slots entirely on days the branch doesn't operate at all.
+export function isBranchOpenOn(date: Date, branch: Pick<IBranch, 'workingHours' | 'holidays'>): boolean {
+  // No working-hours configured at all — same "don't block" fallback as
+  // addBusinessMinutes above, rather than making every slot look unavailable
+  // for a branch that simply hasn't set this up yet.
+  if (branch.workingHours.length === 0) return !isHoliday(date, branch.holidays);
+  return getWorkingWindow(date, branch) !== null;
+}
+
 // Adds `minutes` of business time to `start`, skipping non-working hours and
 // holidays, and returns the resulting due date/time.
 export function addBusinessMinutes(

@@ -15,6 +15,7 @@ export interface IBranch extends Document {
   serviceCategoryIds: Types.ObjectId[];
   workingHours: WorkingHours[];
   holidays: Date[];
+  dailyCapacityPerSlot: number;
   managerId?: Types.ObjectId;
   active: boolean;
   // GST/billing details for financial documents — docs/16-pdf-and-financial-documents.md §3.
@@ -43,6 +44,7 @@ const branchSchema = new Schema<IBranch>(
       },
     ],
     holidays: { type: [Date], default: [] },
+    dailyCapacityPerSlot: { type: Number, default: 5, min: 1 },
     managerId: { type: Schema.Types.ObjectId, ref: 'User' },
     active: { type: Boolean, default: true },
     registeredAddress: {

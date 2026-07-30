@@ -23,6 +23,7 @@ import { OtpModel } from '../auth/otp.model';
 import crypto from 'crypto';
 import { UnauthorizedError } from '../../lib/errors';
 import { resolveVerticalServiceIds } from '../../lib/verticals';
+import { assertSlotAvailable } from '../appointment-slots/appointmentSlots.service';
 
 const ASSIGNEE_TYPE_TO_STATUS: Record<AssigneeType, ServiceRequestStatus> = {
   BRANCH: 'ASSIGNED_TO_BRANCH',
@@ -229,6 +230,10 @@ export async function createServiceRequest(data: Record<string, unknown> & { add
   const branch = await resolveBranch(data.serviceId as string, data.addressSnapshot.pinCode);
   const service = await ServiceModel.findById(data.serviceId);
 
+  if (branch && data.scheduledDate && data.scheduledSlot) {
+    await assertSlotAvailable(branch._id.toString(), data.scheduledDate as Date, data.scheduledSlot as string);
+  }
+
   const number = await getNextNumber('SERVICE_REQUEST', branch?._id.toString());
   const dueAt = branch
     ? addBusinessMinutes(new Date(), service?.slaMinutes ?? 1440, branch)
@@ -321,6 +326,10 @@ export async function rescheduleServiceRequest(id: string, input: RescheduleInpu
   if (!sr) throw new NotFoundError('Service request not found');
 
   assertValidTransition('SERVICE_REQUEST', sr.status, 'RESCHEDULED', actor.role);
+
+  if (sr.branchId) {
+    await assertSlotAvailable(sr.branchId.toString(), input.scheduledDate, input.scheduledSlot);
+  }
 
   const fromStatus = sr.status;
   sr.status = 'RESCHEDULED';
