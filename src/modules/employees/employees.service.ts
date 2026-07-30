@@ -40,7 +40,11 @@ export async function getEmployee(id: string) {
 // ServiceRequest.assigneeId actually stores for EMPLOYEE assignments)
 // without trusting a client-supplied id.
 export async function getOwnEmployee(userId: string) {
-  const employee = await EmployeeModel.findOne({ userId }).populate('userId', 'name mobile email');
+  const employee = await EmployeeModel.findOne({ userId })
+    .populate('userId', 'name mobile email')
+    .populate('branchId', 'name code')
+    .populate('subBranchId', 'name')
+    .populate('teamId', 'name');
   if (!employee) throw new NotFoundError('No employee record linked to this account');
   return employee;
 }
