@@ -81,6 +81,7 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   const [items, total] = await Promise.all([
     ServiceRequestModel.find(filter)
       .populate<{ customerId: { _id: Types.ObjectId; name: string; contacts: { mobile: string; isPrimary: boolean }[] } | null }>('customerId', 'name contacts')
+      .populate<{ serviceId: { _id: Types.ObjectId; name: string } | null }>('serviceId', 'name')
       .skip(skip)
       .limit(params.limit)
       .sort({ createdAt: -1 }),
@@ -94,10 +95,13 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   const shaped = items.map((item) => {
     const obj = item.toObject();
     const customer = obj.customerId as unknown as { _id: Types.ObjectId; name: string; contacts: { mobile: string; isPrimary: boolean }[] } | null;
+    const service = obj.serviceId as unknown as { _id: Types.ObjectId; name: string } | null;
     return {
       ...obj,
       customerId: customer?._id,
       customer: customer ? { name: customer.name, mobile: customer.contacts.find((c) => c.isPrimary)?.mobile ?? customer.contacts[0]?.mobile } : null,
+      serviceId: service?._id,
+      service: service ? { name: service.name } : null,
       assignee:
         item.assigneeType && item.assigneeId
           ? { type: item.assigneeType, name: nameByAssignee.get(`${item.assigneeType}:${item.assigneeId.toString()}`) ?? null }
