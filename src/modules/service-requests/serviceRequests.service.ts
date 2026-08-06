@@ -24,6 +24,7 @@ import crypto from 'crypto';
 import { UnauthorizedError } from '../../lib/errors';
 import { resolveVerticalServiceIds } from '../../lib/verticals';
 import { assertSlotAvailable } from '../appointment-slots/appointmentSlots.service';
+import { env } from '../../config/env';
 
 const ASSIGNEE_TYPE_TO_STATUS: Record<AssigneeType, ServiceRequestStatus> = {
   BRANCH: 'ASSIGNED_TO_BRANCH',
@@ -645,12 +646,17 @@ export async function requestCompletionOtp(serviceRequestId: string): Promise<vo
   const mobile = customer?.contacts.find((c) => c.isPrimary)?.mobile ?? customer?.contacts[0]?.mobile;
   if (!mobile) throw new ConflictError('Customer has no registered mobile number for completion confirmation', 'NO_CUSTOMER_MOBILE');
 
-  const otp = generateOtp();
+  // Fixed only in development so field testing does not depend on a delivery
+  // provider. Production continues to use a cryptographically random OTP.
+  const otp = env.nodeEnv === 'production' ? generateOtp() : '123456';
   await OtpModel.create({
     mobile,
     otpHash: hashOtp(otp),
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
+  if (env.nodeEnv !== 'production') {
+    console.log(`[dev] Completion OTP for job ${serviceRequestId} (${mobile}): ${otp}`);
+  }
 
   await trigger('SERVICE_COMPLETION_OTP', { recipient: { mobile }, variables: { serviceRequestId, otp } });
 }
