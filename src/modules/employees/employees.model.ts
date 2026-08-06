@@ -17,6 +17,7 @@ export interface IEmployee extends Document {
   availability: IAvailabilitySlot[];
   dailyCapacity: number;
   active: boolean;
+  fcmTokens: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,7 @@ const employeeSchema = new Schema<IEmployee>(
     ],
     dailyCapacity: { type: Number, default: 5 },
     active: { type: Boolean, default: true },
+    fcmTokens: { type: [String], default: [] },
   },
   { timestamps: true }
 );

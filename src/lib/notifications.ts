@@ -1,6 +1,7 @@
 import { NotificationTemplateModel, NotificationModel, NotificationChannel } from '../modules/notifications/notificationTemplates.model';
 import { UserModel } from '../modules/users/users.model';
 import { CustomerModel } from '../modules/customers/customers.model';
+import { EmployeeModel } from '../modules/employees/employees.model';
 import { isEmailEnabled, sendEmail } from './emailAdapter';
 import { isWhatsAppEnabled, sendWhatsApp } from './whatsappAdapter';
 import { isPushEnabled, sendPush } from './pushAdapter';
@@ -30,6 +31,7 @@ interface ResolvedContact {
   mobile?: string;
   email?: string;
   customerId?: string;
+  employeeId?: string;
   fcmTokens?: string[];
 }
 
@@ -59,16 +61,16 @@ async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedCont
       resolved.fcmTokens = customer.fcmTokens;
     }
   }
+  if (!resolved.fcmTokens && resolved.userId) {
+    const employee = await EmployeeModel.findOne({ userId: resolved.userId }).lean();
+    if (employee) {
+      resolved.employeeId = employee._id.toString();
+      resolved.fcmTokens = employee.fcmTokens;
+    }
+  }
 
   return resolved;
 }
-
-// Single entry point every domain module calls to notify someone — the real
-// implementation of the seam docs/manish/05-module-wise-backend-plan.md
-// §Notifications describes, and of what notificationStub.ts's
-// sendPlaceholderNotification() was always meant to be swapped for (Phase 8).
-// Never throws — a notification failure must never crash the triggering
-// business operation, per docs/01-business-requirements-document.md §3.6.
 export async function trigger(triggerKey: string, context: TriggerContext): Promise<void> {
   try {
     const templates = await NotificationTemplateModel.find({ triggerKey, active: true });
@@ -154,8 +156,12 @@ async function deliverOne(
           notification.failureReason = 'No push token registered for recipient';
         } else {
           const result = await sendPush({ tokens: contact.fcmTokens, title: subject ?? 'CityCalls', body, data: { triggerKey } });
-          if (result.invalidTokens.length > 0 && contact.customerId) {
-            await CustomerModel.updateOne({ _id: contact.customerId }, { $pull: { fcmTokens: { $in: result.invalidTokens } } });
+          if (result.invalidTokens.length > 0) {
+            if (contact.customerId) {
+              await CustomerModel.updateOne({ _id: contact.customerId }, { $pull: { fcmTokens: { $in: result.invalidTokens } } });
+            } else if (contact.employeeId) {
+              await EmployeeModel.updateOne({ _id: contact.employeeId }, { $pull: { fcmTokens: { $in: result.invalidTokens } } });
+            }
           }
           if (result.successCount > 0) {
             notification.status = 'SENT';

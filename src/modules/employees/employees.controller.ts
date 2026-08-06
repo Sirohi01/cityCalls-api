@@ -24,6 +24,39 @@ export async function getOwnEmployeeHandler(req: ScopedRequest, res: Response, n
   }
 }
 
+export async function registerFcmTokenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { token } = req.body as { token: string };
+    const employee = await employeeService.registerFcmToken(req.user.sub, token);
+    sendSuccess(res, employee, 'Push token registered successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function unregisterFcmTokenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { token } = req.body as { token: string };
+    const employee = await employeeService.unregisterFcmToken(req.user.sub, token);
+    sendSuccess(res, employee, 'Push token unregistered successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateOwnAvailabilityHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { availability } = req.body as { availability: { day: number; available: boolean }[] };
+    const employee = await employeeService.updateOwnAvailability(req.user.sub, availability);
+    sendSuccess(res, employee, 'Availability updated successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const employee = await employeeService.getEmployee(paramAsString(req.params.id));
@@ -44,7 +77,10 @@ export async function createEmployeeHandler(req: ScopedRequest, res: Response, n
 
 export async function updateEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const employee = await employeeService.updateEmployee(paramAsString(req.params.id), req.body);
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    await employeeService.assertEmployeeAccessInScope(await employeeService.getEmployee(id), req.scope, req.user);
+    const employee = await employeeService.updateEmployee(id, req.body);
     sendSuccess(res, employee, 'Employee updated successfully');
   } catch (err) {
     next(err);
@@ -53,7 +89,10 @@ export async function updateEmployeeHandler(req: ScopedRequest, res: Response, n
 
 export async function deleteEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    await employeeService.deleteEmployee(paramAsString(req.params.id));
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    await employeeService.assertEmployeeAccessInScope(await employeeService.getEmployee(id), req.scope, req.user);
+    await employeeService.deleteEmployee(id);
     sendSuccess(res, null, 'Employee deleted successfully');
   } catch (err) {
     next(err);
