@@ -184,7 +184,11 @@ export async function reopenHandler(req: ScopedRequest, res: Response, next: Nex
 
 export async function reopenHistoryHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const history = await srService.getReopenHistory(paramAsString(req.params.id));
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const sr = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
+    const history = await srService.getReopenHistory(id);
     sendSuccess(res, history, 'Reopen history fetched successfully');
   } catch (err) {
     next(err);
@@ -193,8 +197,31 @@ export async function reopenHistoryHandler(req: ScopedRequest, res: Response, ne
 
 export async function assignmentHistoryHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const history = await srService.getAssignmentHistory(paramAsString(req.params.id));
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const sr = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
+    const history = await srService.getAssignmentHistory(id);
     sendSuccess(res, history, 'Assignment history fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+// The customer app's "Activity Timeline" was previously wired to
+// assignment-history above, which only has entries for who-got-assigned
+// events — most requests only get assigned once, so that timeline was
+// effectively always empty/one-line. This is the real per-request activity
+// feed (status changes, everything logActivity() already records), scoped
+// and ownership-checked the same way as the rest of this file.
+export async function activityLogHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    const sr = await srService.getServiceRequest(id);
+    await srService.assertOwnServiceRequestAccess(sr, req.scope, req.user);
+    const log = await srService.getServiceRequestActivityLog(id);
+    sendSuccess(res, log, 'Activity log fetched successfully');
   } catch (err) {
     next(err);
   }

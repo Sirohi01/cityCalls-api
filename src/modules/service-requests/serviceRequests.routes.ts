@@ -29,6 +29,7 @@ router.post('/service-requests/:id/assign', authMiddleware, requirePermission('s
 router.post('/service-requests/:id/reassign', authMiddleware, requirePermission('serviceRequests', 'assign'), validate(reassignSchema), ctrl.reassignHandler);
 router.get('/service-requests/:id/assignment-candidates', authMiddleware, requirePermission('serviceRequests', 'assign'), ctrl.assignmentCandidatesHandler);
 router.get('/service-requests/:id/assignment-history', authMiddleware, requirePermission('serviceRequests', 'view'), ctrl.assignmentHistoryHandler);
+router.get('/service-requests/:id/activity-log', authMiddleware, requirePermission('serviceRequests', 'view'), ctrl.activityLogHandler);
 router.post('/service-requests/:id/cancel', authMiddleware, requirePermission('serviceRequests', 'edit'), validate(cancelSchema), ctrl.cancelHandler);
 router.post('/service-requests/:id/reopen', authMiddleware, requirePermission('serviceRequests', 'edit'), validate(reopenSchema), ctrl.reopenHandler);
 router.post('/service-requests/:id/feedback', authMiddleware, requirePermission('serviceRequests', 'edit'), validate(submitFeedbackSchema), ctrl.submitFeedbackHandler);

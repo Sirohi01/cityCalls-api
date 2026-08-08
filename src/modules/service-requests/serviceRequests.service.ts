@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { ServiceRequestModel, ServiceRequestStatus, AssigneeType, IServiceRequest } from './serviceRequests.model';
 import { AssignmentHistoryModel } from './assignmentHistory.model';
+import { ActivityLogModel } from '../audit/activityLog.model';
 import { ServiceModel } from '../catalog/catalog.model';
 import { BranchModel, IBranch, SubBranchModel } from '../organization/organization.model';
 import { EmployeeModel } from '../employees/employees.model';
@@ -818,6 +819,29 @@ export async function getAssignmentHistory(serviceRequestId: string) {
   return AssignmentHistoryModel.find({ serviceRequestId })
     .populate('actorId', 'name')
     .sort({ timestamp: -1 });
+}
+
+// The real per-request activity feed — every logActivity() call anywhere in
+// the app tagged with this SR's id (status changes, estimate/invoice
+// actions, reassignments, etc.), not just the narrow assignment-only history
+// above. This is what a customer/vendor actually means by "activity
+// timeline": the whole story of what happened to their request.
+export async function getServiceRequestActivityLog(serviceRequestId: string) {
+  const logs = await ActivityLogModel.find({ entityType: 'SERVICE_REQUEST', entityId: serviceRequestId })
+    .populate('userId', 'name')
+    .sort({ timestamp: -1 })
+    .limit(100);
+
+  return logs.map((log) => {
+    const user = log.userId as unknown as { name?: string } | undefined;
+    return {
+      id: log._id.toString(),
+      action: log.action,
+      actorName: user?.name ?? 'System',
+      reason: log.reason,
+      timestamp: log.timestamp.toISOString(),
+    };
+  });
 }
 
 function hashOtp(otp: string): string {
