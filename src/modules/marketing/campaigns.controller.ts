@@ -51,6 +51,16 @@ export async function previewCampaignAudienceHandler(req: ScopedRequest, res: Re
   }
 }
 
+export async function duplicateCampaignHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const campaign = await campaignsService.duplicateCampaign(paramAsString(req.params.id), req.user);
+    sendSuccess(res, campaign, 'Campaign duplicated successfully', null, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateCampaignHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const campaign = await campaignsService.updateCampaign(paramAsString(req.params.id), req.body);

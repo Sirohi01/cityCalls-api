@@ -223,6 +223,28 @@ export async function queueDueScheduledCampaigns(): Promise<number> {
   return queued;
 }
 
+// A sent campaign (COMPLETED/CANCELLED) can't be edited or resent — see
+// updateCampaign/sendCampaignNow's status guards — but recurring sends
+// (a festival greeting, an annual promo) shouldn't mean rebuilding the
+// template/audience/image from scratch every time. Duplicate clones
+// everything into a fresh DRAFT the user can tweak (e.g. just the occasion
+// name) and send again.
+export async function duplicateCampaign(id: string, actor: AccessTokenPayload) {
+  const source = await CampaignModel.findById(id);
+  if (!source) throw new NotFoundError('Campaign not found');
+  return CampaignModel.create({
+    name: `${source.name} (Copy)`,
+    channel: source.channel,
+    templateId: source.templateId,
+    providerCampaignName: source.providerCampaignName,
+    templateParams: source.templateParams,
+    media: source.media,
+    audienceFilter: source.audienceFilter,
+    status: 'DRAFT',
+    createdBy: actor.sub,
+  });
+}
+
 export async function updateCampaign(id: string, data: Record<string, unknown>) {
   const campaign = await CampaignModel.findById(id);
   if (!campaign) throw new NotFoundError('Campaign not found');
