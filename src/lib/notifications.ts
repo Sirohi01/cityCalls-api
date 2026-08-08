@@ -64,6 +64,23 @@ async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedCont
       resolved.fcmTokens = customer.fcmTokens;
     }
   }
+  if (!resolved.name && resolved.mobile) {
+    const customerByMobile = await CustomerModel.findOne({ 'contacts.mobile': resolved.mobile }).lean();
+    if (customerByMobile) {
+      resolved.name = customerByMobile.name;
+      resolved.customerId = resolved.customerId ?? customerByMobile._id.toString();
+      resolved.userId = resolved.userId ?? customerByMobile.userId?.toString();
+      resolved.fcmTokens = resolved.fcmTokens ?? customerByMobile.fcmTokens;
+    } else {
+      const userByMobile = await UserModel.findOne({ mobile: resolved.mobile }).lean();
+      if (userByMobile) {
+        resolved.name = userByMobile.name;
+        resolved.userId = resolved.userId ?? userByMobile._id.toString();
+        resolved.email = resolved.email ?? userByMobile.email;
+      }
+    }
+  }
+
   if (!resolved.fcmTokens && resolved.userId) {
     const employee = await EmployeeModel.findOne({ userId: resolved.userId }).lean();
     if (employee) {
@@ -150,17 +167,16 @@ async function deliverOne(
             throw new Error(`No AiSensy API campaign configured for trigger ${triggerKey}`);
           }
           const otpFlow = isOtpTrigger(triggerKey);
-          const firstName = contact.name?.trim().split(/\s+/)[0] || 'user';
+          const otpValue = String(variables.otp ?? '');
           const templateParams = otpFlow
-            ? [firstName]
+            ? [otpValue]
             : (template.variables ?? []).map((key) => String(variables[key] ?? ''));
           await sendWhatsApp({
             to: contact.mobile,
             campaignName,
             userName: contact.name,
             variables: templateParams,
-            buttons: otpFlow ? otpCopyCodeButton(String(variables.otp ?? '')) : undefined,
-            paramsFallbackValue: otpFlow ? { FirstName: 'user' } : undefined,
+            buttons: otpFlow ? otpCopyCodeButton(otpValue) : undefined,
           });
           notification.status = 'SENT';
           notification.sentAt = new Date();

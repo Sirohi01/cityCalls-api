@@ -48,14 +48,6 @@ const OTP_TRIGGER_KEYS = ['OTP_LOGIN', 'SERVICE_COMPLETION_OTP'];
 export function isOtpTrigger(triggerKey: string): boolean {
   return OTP_TRIGGER_KEYS.includes(triggerKey);
 }
-
-// citycalls_login_otp_api is a WhatsApp authentication template: the OTP
-// itself is delivered via a "Copy Code" button parameter, not a {{}} body
-// variable (confirmed against AiSensy's own API example for this campaign —
-// its templateParams only carries a greeting name, the code goes here).
-// SERVICE_COMPLETION_OTP shares this same approved campaign (no separately-
-// approved completion-OTP template exists — see .env's
-// AISENSY_COMPLETION_OTP_CAMPAIGN), so it needs the identical button shape.
 export function otpCopyCodeButton(otp: string): SendWhatsAppInput['buttons'] {
   return [{ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: otp }] }];
 }

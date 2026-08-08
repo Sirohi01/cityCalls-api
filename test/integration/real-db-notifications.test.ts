@@ -79,8 +79,16 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
     expect(email?.status).toBe('SKIPPED_INTEGRATION_DISABLED');
     expect(email?.body).toBe('Hello Notify Customer');
 
+    // Unlike EMAIL (genuinely disabled here — no SMTP_HOST set), a real
+    // AISENSY_API_KEY is configured in .env (used for OTP/festival sends),
+    // so isWhatsAppEnabled() is true even under jest. With that, deliverOne
+    // reaches campaignNameForTrigger('TEST_TRIGGER') — a made-up trigger with
+    // no AiSensy campaign mapped — which throws and is caught, landing on
+    // FAILED rather than SKIPPED_INTEGRATION_DISABLED. This is the same
+    // graceful-degradation path real unmapped triggers hit in production.
     const whatsapp = notifications.find((n) => n.channel === 'WHATSAPP');
-    expect(whatsapp?.status).toBe('SKIPPED_INTEGRATION_DISABLED');
+    expect(whatsapp?.status).toBe('FAILED');
+    expect(whatsapp?.failureReason).toMatch(/No AiSensy API campaign configured/);
   });
 
   it('does not throw and creates nothing when no template is registered for the trigger', async () => {
@@ -92,7 +100,7 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
     expect(count).toBe(0);
   });
 
-  it('sends a campaign to consented audience and marks stats.failed when the channel integration is disabled', async () => {
+  it('refuses to send a campaign outright when its channel integration is disabled (fails fast, never queues)', async () => {
     const template = await NotificationTemplateModel.create({
       triggerKey: 'CAMPAIGN_PROMO',
       channel: 'EMAIL',
@@ -106,18 +114,17 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
         name: 'July Promo',
         channel: 'EMAIL',
         templateId: template._id.toString(),
-        audienceFilter: {},
+        audienceFilter: { recipientTypes: ['CUSTOMER'] },
       },
       actor
     );
 
-    const sent = await sendCampaignNow(campaign._id.toString(), actor);
-
-    expect(sent.status).toBe('COMPLETED');
-    expect(sent.stats.sent).toBe(0);
-    expect(sent.stats.failed).toBe(1); // EMAIL integration disabled in test env, so the one consented customer counts as failed
+    // sendCampaignNow's isEmailEnabled() guard rejects up front — EMAIL is
+    // disabled in the test env — rather than queuing a campaign it already
+    // knows every recipient will fail on.
+    await expect(sendCampaignNow(campaign._id.toString(), actor)).rejects.toThrow('Email integration is not configured or enabled');
 
     const persisted = await CampaignModel.findById(campaign._id);
-    expect(persisted?.status).toBe('COMPLETED');
+    expect(persisted?.status).toBe('DRAFT');
   });
 });
