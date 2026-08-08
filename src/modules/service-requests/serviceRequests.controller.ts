@@ -157,6 +157,12 @@ export async function cancelHandler(req: ScopedRequest, res: Response, next: Nex
   }
 }
 
+const CUSTOMER_ROLES = ['CUSTOMER', 'BUSINESS_CUSTOMER'];
+
+// CUSTOMER-initiated reopens go through review (requestReopen) rather than
+// applying immediately — CALL_EXECUTIVE/ADMIN/SUPER_ADMIN (who this route is
+// also gated for, per REOPEN_ROLES) still apply directly, since they're
+// already exercising judgment in the moment. See serviceRequests.service.ts.
 export async function reopenHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user || !req.scope) throw new UnauthorizedError();
@@ -164,8 +170,13 @@ export async function reopenHandler(req: ScopedRequest, res: Response, next: Nex
     const existing = await srService.getServiceRequest(id);
     await srService.assertOwnServiceRequestAccess(existing, req.scope, req.user);
     const { reason } = req.body as { reason: string };
-    const result = await srService.reopenServiceRequest(id, reason, req.user);
-    sendSuccess(res, result, 'Service request reopened successfully', null, 201);
+    if (CUSTOMER_ROLES.includes(req.user.role)) {
+      const result = await srService.requestReopen(id, reason, req.user);
+      sendSuccess(res, result, 'Reopen request submitted for review', null, 201);
+    } else {
+      const result = await srService.reopenServiceRequest(id, reason, req.user);
+      sendSuccess(res, result, 'Service request reopened successfully', null, 201);
+    }
   } catch (err) {
     next(err);
   }

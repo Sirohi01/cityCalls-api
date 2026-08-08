@@ -1,9 +1,18 @@
 import { z } from 'zod';
 
+const vendorContactSchema = z.object({
+  name: z.string(),
+  mobile: z.string(),
+  role: z.string().optional(),
+  email: z.string().email().optional(),
+  whatsappMarketingConsent: z.enum(['GRANTED', 'REVOKED', 'NOT_ASKED']).default('NOT_ASKED'),
+  emailMarketingConsent: z.enum(['GRANTED', 'REVOKED', 'NOT_ASKED']).default('NOT_ASKED'),
+});
+
 export const createVendorSchema = z.object({
   companyName: z.string().min(2),
   contactPersons: z
-    .array(z.object({ name: z.string(), mobile: z.string(), role: z.string().optional() }))
+    .array(vendorContactSchema)
     .default([]),
   serviceAreas: z.object({ pinCodes: z.array(z.string()).default([]) }).default({ pinCodes: [] }),
   servicesOffered: z.array(z.string()).default([]),
@@ -29,7 +38,7 @@ export const createVendorSchema = z.object({
 // serviceAreas/servicesOffered/skills/etc. to empty on any partial PATCH.
 export const updateVendorSchema = z.object({
   companyName: z.string().min(2).optional(),
-  contactPersons: z.array(z.object({ name: z.string(), mobile: z.string(), role: z.string().optional() })).optional(),
+  contactPersons: z.array(vendorContactSchema).optional(),
   serviceAreas: z.object({ pinCodes: z.array(z.string()).default([]) }).optional(),
   servicesOffered: z.array(z.string()).optional(),
   brandsHandled: z.array(z.string()).optional(),

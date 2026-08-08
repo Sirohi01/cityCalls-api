@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { ROLES, DATA_SCOPES } from './users.types';
 
+const communicationConsentSchema = z.object({
+  whatsappMarketing: z.enum(['GRANTED', 'REVOKED', 'NOT_ASKED']).optional(),
+  emailMarketing: z.enum(['GRANTED', 'REVOKED', 'NOT_ASKED']).optional(),
+});
+
 export const createUserSchema = z.object({
   name: z.string().min(2),
   email: z.string().email().optional(),
@@ -11,6 +16,7 @@ export const createUserSchema = z.object({
   subBranchId: z.string().optional(),
   teamId: z.string().optional(),
   vendorId: z.string().optional(),
+  communicationConsent: communicationConsentSchema.optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -22,6 +28,7 @@ export const updateUserSchema = z.object({
   teamId: z.string().optional(),
   vendorId: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  communicationConsent: communicationConsentSchema.optional(),
 });
 
 export const listUsersQuerySchema = z.object({

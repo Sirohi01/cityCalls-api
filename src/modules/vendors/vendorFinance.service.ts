@@ -48,9 +48,9 @@ export async function createVendorInvoice(input: CreateVendorInvoiceInput, actor
   return invoice;
 }
 
-export async function listVendorInvoices(params: { page: number; limit: number; vendorId?: string; status?: string }) {
+export async function listVendorInvoices(params: { page: number; limit: number; vendorId?: string | null; status?: string }) {
   const filter: Record<string, unknown> = {};
-  if (params.vendorId) filter.vendorId = params.vendorId;
+  if (params.vendorId !== undefined) filter.vendorId = params.vendorId;
   if (params.status) filter.status = params.status;
 
   const skip = (params.page - 1) * params.limit;
@@ -116,9 +116,9 @@ export async function markPayoutPaid(id: string, reference: string, actor: Acces
   return payout;
 }
 
-export async function listVendorPayouts(params: { page: number; limit: number; vendorId?: string; status?: string }) {
+export async function listVendorPayouts(params: { page: number; limit: number; vendorId?: string | null; status?: string }) {
   const filter: Record<string, unknown> = {};
-  if (params.vendorId) filter.vendorId = params.vendorId;
+  if (params.vendorId !== undefined) filter.vendorId = params.vendorId;
   if (params.status) filter.status = params.status;
 
   const skip = (params.page - 1) * params.limit;

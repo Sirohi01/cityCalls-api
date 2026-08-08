@@ -3,7 +3,7 @@ import { UserModel } from '../modules/users/users.model';
 import { CustomerModel } from '../modules/customers/customers.model';
 import { EmployeeModel } from '../modules/employees/employees.model';
 import { isEmailEnabled, sendEmail } from './emailAdapter';
-import { isWhatsAppEnabled, sendWhatsApp } from './whatsappAdapter';
+import { campaignNameForTrigger, isOtpTrigger, otpCopyCodeButton, isWhatsAppEnabled, sendWhatsApp } from './whatsappAdapter';
 import { isPushEnabled, sendPush } from './pushAdapter';
 import { emitNotificationNew } from '../realtime';
 
@@ -27,6 +27,7 @@ function renderTemplate(template: string, variables: Record<string, unknown>): s
 }
 
 interface ResolvedContact {
+  name?: string;
   userId?: string;
   mobile?: string;
   email?: string;
@@ -46,6 +47,7 @@ async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedCont
   if (recipient.userId && (!resolved.mobile || !resolved.email)) {
     const user = await UserModel.findById(recipient.userId).lean();
     if (user) {
+      resolved.name = user.name;
       resolved.mobile = resolved.mobile ?? user.mobile;
       resolved.email = resolved.email ?? user.email;
     }
@@ -54,6 +56,7 @@ async function resolveContact(recipient: TriggerRecipient): Promise<ResolvedCont
   if (recipient.customerId) {
     const customer = await CustomerModel.findById(recipient.customerId).lean();
     if (customer) {
+      resolved.name = customer.name;
       const primaryContact = customer.contacts.find((c) => c.isPrimary) ?? customer.contacts[0];
       resolved.mobile = resolved.mobile ?? primaryContact?.mobile;
       resolved.email = resolved.email ?? customer.email;
@@ -91,7 +94,7 @@ async function deliverOne(
   templateId: string,
   triggerKey: string,
   contact: ResolvedContact,
-  template: { bodyTemplate: string; subjectTemplate?: string },
+  template: { bodyTemplate: string; subjectTemplate?: string; variables?: string[] },
   variables: Record<string, unknown>
 ): Promise<void> {
   const body = renderTemplate(template.bodyTemplate, variables);
@@ -142,7 +145,23 @@ async function deliverOne(
           notification.status = 'FAILED';
           notification.failureReason = 'No recipient mobile number available';
         } else {
-          await sendWhatsApp({ to: contact.mobile, templateName: triggerKey, variables: Object.values(variables).map(String) });
+          const campaignName = campaignNameForTrigger(triggerKey);
+          if (!campaignName) {
+            throw new Error(`No AiSensy API campaign configured for trigger ${triggerKey}`);
+          }
+          const otpFlow = isOtpTrigger(triggerKey);
+          const firstName = contact.name?.trim().split(/\s+/)[0] || 'user';
+          const templateParams = otpFlow
+            ? [firstName]
+            : (template.variables ?? []).map((key) => String(variables[key] ?? ''));
+          await sendWhatsApp({
+            to: contact.mobile,
+            campaignName,
+            userName: contact.name,
+            variables: templateParams,
+            buttons: otpFlow ? otpCopyCodeButton(String(variables.otp ?? '')) : undefined,
+            paramsFallbackValue: otpFlow ? { FirstName: 'user' } : undefined,
+          });
           notification.status = 'SENT';
           notification.sentAt = new Date();
         }
@@ -174,7 +193,6 @@ async function deliverOne(
         break;
       }
       case 'SMS':
-        // Interface-ready, no provider selected yet — docs/14-integration-architecture.md §6-7.
         notification.status = 'SKIPPED_INTEGRATION_DISABLED';
         break;
     }

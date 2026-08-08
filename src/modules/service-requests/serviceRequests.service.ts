@@ -18,7 +18,8 @@ import { emitServiceRequestStatusChanged, emitServiceRequestAssigned, emitTechni
 import { AccessTokenPayload } from '../../lib/jwt';
 import { DataScope } from '../users/users.types';
 import { CustomerModel, CustomerProductModel } from '../customers/customers.model';
-import { ReopenRecordModel } from '../follow-up/reopenRecords.model';
+import { ReopenRecordModel, IReopenRecord } from '../follow-up/reopenRecords.model';
+import { UserModel } from '../users/users.model';
 import { OtpModel } from '../auth/otp.model';
 import crypto from 'crypto';
 import { UnauthorizedError } from '../../lib/errors';
@@ -52,6 +53,13 @@ interface ListParams {
 
 const CUSTOMER_ROLES_FOR_SCOPE = ['CUSTOMER', 'BUSINESS_CUSTOMER'];
 const EMPLOYEE_ROLES_FOR_SCOPE = ['EMPLOYEE', 'TECHNICIAN'];
+// Outsourced vendor staff. VENDOR_OWNER/VENDOR_MANAGER get dataScope 'VENDOR'
+// on serviceRequests (scripts/seed.ts); VENDOR_TECHNICIAN gets 'OWN' but a job
+// is assigned to the Vendor company as a whole (assigneeType 'VENDOR',
+// assigneeId = Vendor._id — there's no per-technician sub-assignment in the
+// data model), so "my jobs" for a vendor technician means the same thing as
+// "my company's jobs" for the owner/manager: everything assigned to their vendorId.
+const VENDOR_ROLES_FOR_SCOPE = ['VENDOR_OWNER', 'VENDOR_MANAGER', 'VENDOR_TECHNICIAN'];
 
 export async function listServiceRequests(params: ListParams, scope: DataScope, user: AccessTokenPayload) {
   const filter: Record<string, unknown> = {};
@@ -76,6 +84,14 @@ export async function listServiceRequests(params: ListParams, scope: DataScope, 
   if (scope === 'OWN' && EMPLOYEE_ROLES_FOR_SCOPE.includes(user.role)) {
     filter.assigneeType = 'EMPLOYEE';
     filter.assigneeId = user.employeeId ?? null;
+  }
+  // Outsourced vendor staff — 'VENDOR' scope (owner/manager) and 'OWN' scope
+  // (technician) both resolve to the same thing, per the VENDOR_ROLES_FOR_SCOPE
+  // comment above. vendorId comes from the JWT (resolved at login), never a
+  // client-supplied param, same reasoning as the EMPLOYEE case.
+  if ((scope === 'VENDOR' || scope === 'OWN') && VENDOR_ROLES_FOR_SCOPE.includes(user.role)) {
+    filter.assigneeType = 'VENDOR';
+    filter.assigneeId = user.vendorId ?? null;
   }
 
   const skip = (params.page - 1) * params.limit;
@@ -221,6 +237,18 @@ export async function assertOwnServiceRequestAccess(
   scope: DataScope,
   user: AccessTokenPayload
 ): Promise<void> {
+  // VENDOR_OWNER/VENDOR_MANAGER get dataScope 'VENDOR' (not 'OWN') on
+  // serviceRequests (scripts/seed.ts) — must be checked here too, or a
+  // single-record fetch by ID bypasses the vendor-scoping listServiceRequests
+  // enforces on the list endpoint.
+  if (scope === 'VENDOR' && VENDOR_ROLES_FOR_SCOPE.includes(user.role)) {
+    const srAssigneeId = (sr.assigneeId as { toString(): string } | undefined)?.toString();
+    if (sr.assigneeType !== 'VENDOR' || !user.vendorId || srAssigneeId !== user.vendorId) {
+      throw new NotFoundError('Service request not found');
+    }
+    return;
+  }
+
   if (scope !== 'OWN') return;
 
   if (CUSTOMER_ROLES_FOR_SCOPE.includes(user.role)) {
@@ -236,6 +264,14 @@ export async function assertOwnServiceRequestAccess(
   if (EMPLOYEE_ROLES_FOR_SCOPE.includes(user.role)) {
     const srAssigneeId = (sr.assigneeId as { toString(): string } | undefined)?.toString();
     if (sr.assigneeType !== 'EMPLOYEE' || !user.employeeId || srAssigneeId !== user.employeeId) {
+      throw new NotFoundError('Service request not found');
+    }
+    return;
+  }
+
+  if (VENDOR_ROLES_FOR_SCOPE.includes(user.role)) {
+    const srAssigneeId = (sr.assigneeId as { toString(): string } | undefined)?.toString();
+    if (sr.assigneeType !== 'VENDOR' || !user.vendorId || srAssigneeId !== user.vendorId) {
       throw new NotFoundError('Service request not found');
     }
   }
@@ -510,18 +546,18 @@ async function findRootServiceRequestId(sr: { isReopen: boolean; originalService
   return (currentId as { toString(): string }).toString();
 }
 
-export async function reopenServiceRequest(id: string, reason: string, actor: AccessTokenPayload) {
-  const original = await ServiceRequestModel.findById(id);
-  if (!original) throw new NotFoundError('Service request not found');
-  if (!['CLOSED', 'PAID'].includes(original.status)) {
-    throw new ConflictError('Only a closed or paid service request can be reopened', 'REOPEN_NOT_ALLOWED');
-  }
-
-  // The original transitions to the terminal REOPENED status (not left dangling
-  // at CLOSED) — REOPENED is defined as "terminal-of-original, spawns a new
-  // linked Service Request" in docs/07-status-transition-matrix.md §1.
-  assertValidTransition('SERVICE_REQUEST', original.status, 'REOPENED', actor.role);
-
+// Shared by both the direct-staff path (reopenServiceRequest) and the
+// approval path (approveReopenRequest) — everything from computing policy
+// eligibility through actually flipping the original SR to REOPENED and
+// spawning the linked new one. `existingRecord` is passed by the approval
+// path (a PENDING ReopenRecord to fill in and flip to APPROVED); direct
+// staff reopens create a fresh already-APPROVED record instead.
+async function applyReopen(
+  original: InstanceType<typeof ServiceRequestModel>,
+  reason: string,
+  actor: AccessTokenPayload,
+  existingRecord?: InstanceType<typeof ReopenRecordModel>
+) {
   const policy = await resolvePolicy('REOPEN', {
     customerId: original.customerId.toString(),
     serviceId: original.serviceId.toString(),
@@ -541,8 +577,7 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
   }
 
   const rootId = await findRootServiceRequestId(original);
-  const priorReopenCount = await ReopenRecordModel.countDocuments({ originalServiceRequestId: rootId });
-  const reopenCount = priorReopenCount + 1;
+  const reopenCount = existingRecord ? existingRecord.reopenCount : (await ReopenRecordModel.countDocuments({ originalServiceRequestId: rootId })) + 1;
 
   original.status = 'REOPENED';
   await original.save();
@@ -568,19 +603,35 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     createdBy: actor.sub,
   });
 
-  const reopenRecord = await ReopenRecordModel.create({
-    originalServiceRequestId: rootId,
-    newServiceRequestId: newSr._id,
-    reason,
-    reopenedBy: actor.sub,
-    withinPolicyWindow: withinWindow,
-    warrantyApplied,
-    reopenCount,
-  });
+  let reopenRecord: InstanceType<typeof ReopenRecordModel>;
+  if (existingRecord) {
+    existingRecord.newServiceRequestId = newSr._id;
+    existingRecord.withinPolicyWindow = withinWindow;
+    existingRecord.warrantyApplied = warrantyApplied;
+    existingRecord.status = 'APPROVED';
+    existingRecord.reviewedBy = actor.sub as never;
+    existingRecord.reviewedAt = new Date();
+    await existingRecord.save();
+    reopenRecord = existingRecord;
+  } else {
+    reopenRecord = await ReopenRecordModel.create({
+      originalServiceRequestId: rootId,
+      requestedServiceRequestId: original._id,
+      newServiceRequestId: newSr._id,
+      reason,
+      reopenedBy: actor.sub,
+      withinPolicyWindow: withinWindow,
+      warrantyApplied,
+      reopenCount,
+      status: 'APPROVED',
+      reviewedBy: actor.sub as never,
+      reviewedAt: new Date(),
+    });
+  }
 
   await logActivity({
     entityType: 'SERVICE_REQUEST',
-    entityId: id,
+    entityId: original._id.toString(),
     user: actor,
     action: 'REOPENED',
     module: 'service-requests',
@@ -594,7 +645,7 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
     if (employee) {
       await trigger('COMPLAINT_REOPENED', {
         recipient: { userId: employee.userId.toString() },
-        variables: { originalServiceRequestId: id, newServiceRequestId: newSr._id.toString() },
+        variables: { originalServiceRequestId: original._id.toString(), newServiceRequestId: newSr._id.toString() },
       });
     }
   }
@@ -609,6 +660,149 @@ export async function reopenServiceRequest(id: string, reason: string, actor: Ac
   }
 
   return { newServiceRequest: newSr, reopenRecord, withinPolicyWindow: withinWindow, warrantyApplied, reopenCount, windowDays };
+}
+
+// Staff-initiated (CALL_EXECUTIVE/ADMIN/SUPER_ADMIN) — applies immediately,
+// no separate review step, since staff are already exercising judgment in
+// real time (e.g. on a call with the customer). See requestReopen for the
+// CUSTOMER-initiated path, which needs CS/Happy-Call sign-off instead.
+export async function reopenServiceRequest(id: string, reason: string, actor: AccessTokenPayload) {
+  const original = await ServiceRequestModel.findById(id);
+  if (!original) throw new NotFoundError('Service request not found');
+  if (!['CLOSED', 'PAID'].includes(original.status)) {
+    throw new ConflictError('Only a closed or paid service request can be reopened', 'REOPEN_NOT_ALLOWED');
+  }
+
+  // The original transitions to the terminal REOPENED status (not left dangling
+  // at CLOSED) — REOPENED is defined as "terminal-of-original, spawns a new
+  // linked Service Request" in docs/07-status-transition-matrix.md §1.
+  assertValidTransition('SERVICE_REQUEST', original.status, 'REOPENED', actor.role);
+
+  return applyReopen(original, reason, actor);
+}
+
+const REOPEN_REVIEWER_ROLES = ['CUSTOMER_SUPPORT_EXECUTIVE', 'HAPPY_CALL_EXECUTIVE'];
+
+// CUSTOMER-initiated — does NOT touch the original SR or spawn a new one yet;
+// just records a PENDING request and notifies reviewers. The CLOSED/PAID ->
+// REOPENED transition only actually happens once approveReopenRequest runs.
+export async function requestReopen(id: string, reason: string, actor: AccessTokenPayload) {
+  const original = await ServiceRequestModel.findById(id);
+  if (!original) throw new NotFoundError('Service request not found');
+  if (!['CLOSED', 'PAID'].includes(original.status)) {
+    throw new ConflictError('Only a closed or paid service request can be reopened', 'REOPEN_NOT_ALLOWED');
+  }
+
+  const rootId = await findRootServiceRequestId(original);
+  const priorReopenCount = await ReopenRecordModel.countDocuments({ originalServiceRequestId: rootId, status: { $ne: 'REJECTED' } });
+  const reopenCount = priorReopenCount + 1;
+
+  const reopenRecord = await ReopenRecordModel.create({
+    originalServiceRequestId: rootId,
+    requestedServiceRequestId: original._id,
+    reason,
+    reopenedBy: actor.sub,
+    withinPolicyWindow: false, // recomputed properly once approved, per applyReopen
+    warrantyApplied: false,
+    reopenCount,
+    status: 'PENDING',
+  });
+
+  await logActivity({
+    entityType: 'SERVICE_REQUEST',
+    entityId: id,
+    user: actor,
+    action: 'REOPEN_REQUESTED',
+    module: 'service-requests',
+    reason,
+    newValue: { reopenRequestId: reopenRecord._id.toString() },
+  });
+
+  const reviewers = original.branchId
+    ? await UserModel.find({ branchId: original.branchId, role: { $in: REOPEN_REVIEWER_ROLES } })
+    : await UserModel.find({ role: { $in: ['ADMIN', 'SUPER_ADMIN'] } });
+  for (const reviewer of reviewers) {
+    await trigger('REOPEN_REQUESTED', {
+      recipient: { userId: reviewer._id.toString() },
+      variables: { serviceRequestId: id, reason },
+    });
+  }
+
+  return reopenRecord;
+}
+
+async function assertActorOwnsReopenReview(record: IReopenRecord, actor: AccessTokenPayload): Promise<void> {
+  if (['ADMIN', 'SUPER_ADMIN'].includes(actor.role)) return;
+  if (!REOPEN_REVIEWER_ROLES.includes(actor.role)) {
+    throw new AppError(403, 'Only Customer Support / Happy Call staff can review reopen requests', [
+      { field: 'general', code: 'FORBIDDEN', message: `Role ${actor.role} cannot review reopen requests` },
+    ]);
+  }
+  if (actor.branchId) {
+    const sr = await ServiceRequestModel.findById(record.requestedServiceRequestId).select('branchId');
+    if (sr?.branchId && sr.branchId.toString() !== actor.branchId) {
+      throw new NotFoundError('Reopen request not found');
+    }
+  }
+}
+
+export async function approveReopenRequest(reopenRequestId: string, actor: AccessTokenPayload) {
+  const record = await ReopenRecordModel.findById(reopenRequestId);
+  if (!record) throw new NotFoundError('Reopen request not found');
+  if (record.status !== 'PENDING') {
+    throw new ConflictError('This reopen request has already been reviewed', 'REOPEN_REQUEST_ALREADY_REVIEWED');
+  }
+  await assertActorOwnsReopenReview(record, actor);
+
+  const original = await ServiceRequestModel.findById(record.requestedServiceRequestId);
+  if (!original) throw new NotFoundError('Service request not found');
+  if (!['CLOSED', 'PAID'].includes(original.status)) {
+    throw new ConflictError('This service request is no longer eligible to be reopened', 'REOPEN_NOT_ALLOWED');
+  }
+  assertValidTransition('SERVICE_REQUEST', original.status, 'REOPENED', actor.role);
+
+  const result = await applyReopen(original, record.reason, actor, record);
+
+  await trigger('REOPEN_APPROVED', {
+    recipient: { customerId: original.customerId.toString() },
+    variables: { serviceRequestId: original._id.toString(), newServiceRequestId: result.newServiceRequest._id.toString() },
+  });
+
+  return result;
+}
+
+export async function rejectReopenRequest(reopenRequestId: string, rejectionReason: string, actor: AccessTokenPayload) {
+  const record = await ReopenRecordModel.findById(reopenRequestId);
+  if (!record) throw new NotFoundError('Reopen request not found');
+  if (record.status !== 'PENDING') {
+    throw new ConflictError('This reopen request has already been reviewed', 'REOPEN_REQUEST_ALREADY_REVIEWED');
+  }
+  await assertActorOwnsReopenReview(record, actor);
+
+  record.status = 'REJECTED';
+  record.rejectionReason = rejectionReason;
+  record.reviewedBy = actor.sub as never;
+  record.reviewedAt = new Date();
+  await record.save();
+
+  await logActivity({
+    entityType: 'SERVICE_REQUEST',
+    entityId: record.requestedServiceRequestId.toString(),
+    user: actor,
+    action: 'REOPEN_REJECTED',
+    module: 'service-requests',
+    reason: rejectionReason,
+  });
+
+  const original = await ServiceRequestModel.findById(record.requestedServiceRequestId).select('customerId');
+  if (original) {
+    await trigger('REOPEN_REJECTED', {
+      recipient: { customerId: original.customerId.toString() },
+      variables: { serviceRequestId: original._id.toString(), reason: rejectionReason },
+    });
+  }
+
+  return record;
 }
 
 export async function getReopenHistory(serviceRequestId: string) {

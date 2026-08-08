@@ -25,6 +25,7 @@ interface AuthResult {
     name: string;
     role: IUser['role'];
     branchId?: string;
+    vendorId?: string;
   };
 }
 
@@ -77,6 +78,7 @@ async function issueTokens(user: IUser, meta: SessionMeta): Promise<AuthResult> 
       name: user.name,
       role: user.role,
       branchId: user.branchId?.toString(),
+      vendorId: user.vendorId?.toString(),
     },
   };
 }
@@ -150,7 +152,6 @@ function generateOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
 
-// docs/manish/04-authentication-and-rbac-plan.md §1: OTP-based login, primarily for the customer app.
 export async function requestOtp(mobile: string): Promise<void> {
   const otp = generateOtp();
   const otpHash = hashToken(otp);
@@ -160,13 +161,7 @@ export async function requestOtp(mobile: string): Promise<void> {
     otpHash,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes, per docs/17 §4
   });
-
   await trigger('OTP_LOGIN', { recipient: { mobile }, variables: { otp } });
-
-  // AiSensy (WhatsApp) isn't wired up yet, so trigger() above silently records
-  // SKIPPED_INTEGRATION_DISABLED — the OTP never actually reaches anyone.
-  // Print it to the server console outside production so the customer app is
-  // testable end-to-end without a real WhatsApp/SMS provider.
   if (env.nodeEnv !== 'production') {
     console.log(`[dev] OTP for ${mobile}: ${otp}`);
   }
@@ -188,9 +183,6 @@ export async function verifyOtp(mobile: string, otp: string, meta: SessionMeta):
 
   record.verified = true;
   await record.save();
-
-  // Progressive registration: OTP login auto-creates a CUSTOMER account on first use,
-  // since customer accounts don't necessarily pre-exist (docs/manish/08 §1).
   let user = await UserModel.findOne({ mobile });
   if (!user) {
     const placeholderPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
@@ -212,13 +204,9 @@ export async function verifyOtp(mobile: string, otp: string, meta: SessionMeta):
   return issueTokens(user, meta);
 }
 
-// docs/manish/04-authentication-and-rbac-plan.md §1: time-limited, single-use email link.
 export async function requestPasswordReset(identifier: string): Promise<void> {
   const isEmail = identifier.includes('@');
   const user = await UserModel.findOne(isEmail ? { email: identifier.toLowerCase() } : { mobile: identifier });
-
-  // Always succeed from the caller's perspective even if no account matches —
-  // does not confirm/deny account existence to an unauthenticated caller.
   if (!user) return;
 
   const token = crypto.randomBytes(32).toString('hex');
@@ -257,8 +245,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await SessionModel.updateMany({ userId: user._id, revokedAt: { $exists: false } }, { revokedAt: new Date() });
 }
 
-// Session management — docs/17-security-and-audit.md §9: users can revoke their own
-// sessions; Super Admin/Admin can revoke any user's (enforced at the route/permission layer).
 export async function listSessions(userId: string) {
   return SessionModel.find({ userId, revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } })
     .select('-refreshTokenHash')
@@ -275,13 +261,6 @@ export async function revokeSession(userId: string, sessionId: string): Promise<
 export async function revokeAllSessions(userId: string): Promise<void> {
   await SessionModel.updateMany({ userId, revokedAt: { $exists: false } }, { revokedAt: new Date() });
 }
-
-// docs/manish/10-admin-functional-integration-plan.md §3: exposes the
-// current user's profile plus their RESOLVED permission set (not just role
-// name), so the frontend's usePermission(module, action) hook can check
-// access without re-deriving the server-side permission matrix itself.
-// Shape: permissions[module][action] = dataScope, so a real access check is
-// `Boolean(permissions[module]?.[action])` — absence means no grant.
 export async function getMe(userId: string) {
   const user = await UserModel.findById(userId);
   if (!user) throw new NotFoundError('User not found');

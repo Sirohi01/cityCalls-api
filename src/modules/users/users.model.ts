@@ -12,6 +12,10 @@ export interface IUser extends Document {
   subBranchId?: Types.ObjectId;
   teamId?: Types.ObjectId;
   vendorId?: Types.ObjectId;
+  communicationConsent: {
+    whatsappMarketing: 'GRANTED' | 'REVOKED' | 'NOT_ASKED';
+    emailMarketing: 'GRANTED' | 'REVOKED' | 'NOT_ASKED';
+  };
   lastLoginAt?: Date;
   // Unset on the bootstrap Super Admin created directly by the seed script
   // (not through this model's create flow) — shown as "System (seed)" on
@@ -34,6 +38,10 @@ const userSchema = new Schema<IUser>(
     subBranchId: { type: Schema.Types.ObjectId, ref: 'SubBranch' },
     teamId: { type: Schema.Types.ObjectId, ref: 'Team' },
     vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor' },
+    communicationConsent: {
+      whatsappMarketing: { type: String, enum: ['GRANTED', 'REVOKED', 'NOT_ASKED'], default: 'NOT_ASKED' },
+      emailMarketing: { type: String, enum: ['GRANTED', 'REVOKED', 'NOT_ASKED'], default: 'NOT_ASKED' },
+    },
     lastLoginAt: { type: Date },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },

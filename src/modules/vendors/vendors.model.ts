@@ -3,7 +3,14 @@ import { Schema, model, Document, Types } from 'mongoose';
 // docs/09-database-architecture.md §2 "vendors" / "vendor_technicians".
 export interface IVendor extends Document {
   companyName: string;
-  contactPersons: { name: string; mobile: string; role?: string }[];
+  contactPersons: {
+    name: string;
+    mobile: string;
+    role?: string;
+    whatsappMarketingConsent: 'GRANTED' | 'REVOKED' | 'NOT_ASKED';
+    email?: string;
+    emailMarketingConsent: 'GRANTED' | 'REVOKED' | 'NOT_ASKED';
+  }[];
   serviceAreas: { pinCodes: string[] };
   servicesOffered: Types.ObjectId[]; // Service refs
   brandsHandled: Types.ObjectId[]; // Master (BRAND) refs
@@ -25,7 +32,16 @@ export interface IVendor extends Document {
 const vendorSchema = new Schema<IVendor>(
   {
     companyName: { type: String, required: true, trim: true },
-    contactPersons: [{ name: String, mobile: String, role: String }],
+    contactPersons: [
+      {
+        name: String,
+        mobile: String,
+        role: String,
+        email: String,
+        whatsappMarketingConsent: { type: String, enum: ['GRANTED', 'REVOKED', 'NOT_ASKED'], default: 'NOT_ASKED' },
+        emailMarketingConsent: { type: String, enum: ['GRANTED', 'REVOKED', 'NOT_ASKED'], default: 'NOT_ASKED' },
+      },
+    ],
     serviceAreas: { pinCodes: { type: [String], default: [] } },
     servicesOffered: [{ type: Schema.Types.ObjectId, ref: 'Service' }],
     brandsHandled: [{ type: Schema.Types.ObjectId, ref: 'Master' }],

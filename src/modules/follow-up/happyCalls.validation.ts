@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HAPPY_CALL_STATUSES } from './happyCalls.model';
+import { REOPEN_REQUEST_STATUSES } from './reopenRecords.model';
 
 export const recordHappyCallOutcomeSchema = z.object({
   status: z.enum(HAPPY_CALL_STATUSES),
@@ -26,4 +27,9 @@ export const listHappyCallsQuerySchema = z.object({
 export const listReopenRequestsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(REOPEN_REQUEST_STATUSES).optional(),
+});
+
+export const rejectReopenRequestSchema = z.object({
+  reason: z.string().min(1),
 });

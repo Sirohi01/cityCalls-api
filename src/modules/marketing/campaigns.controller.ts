@@ -42,6 +42,15 @@ export async function sendCampaignHandler(req: ScopedRequest, res: Response, nex
   }
 }
 
+export async function previewCampaignAudienceHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const preview = await campaignsService.previewCampaignAudience(paramAsString(req.params.id));
+    sendSuccess(res, preview, 'Campaign audience preview generated');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateCampaignHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const campaign = await campaignsService.updateCampaign(paramAsString(req.params.id), req.body);

@@ -6,6 +6,7 @@ import { loadStatusEngineCache } from './lib/statusEngine';
 import { initRealtime } from './realtime';
 import { startEscalationCheckInterval } from './jobs/escalationCheck';
 import { startHappyCallSchedulerInterval } from './jobs/happyCallScheduler';
+import { startCampaignSchedulerInterval } from './jobs/campaignScheduler';
 import { env } from './config/env';
 
 async function main(): Promise<void> {
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
   initRealtime(httpServer);
   startEscalationCheckInterval();
   startHappyCallSchedulerInterval();
+  startCampaignSchedulerInterval();
 
   httpServer.listen(env.port, () => {
     console.log(`[server] citycalls-api listening on port ${env.port} (${env.nodeEnv})`);

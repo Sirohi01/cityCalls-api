@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import * as happyCallsService from './happyCalls.service';
+import { approveReopenRequest, rejectReopenRequest } from '../service-requests/serviceRequests.service';
 import { sendSuccess, paramAsString } from '../../lib/apiResponse';
 import { ScopedRequest } from '../../middleware/permission.middleware';
 import { UnauthorizedError } from '../../lib/errors';
@@ -19,6 +20,27 @@ export async function listReopenRequestsHandler(req: ScopedRequest, res: Respons
     sendSuccess(res, items, 'Reopen requests retrieved', meta);
   } catch (error) {
     next(error);
+  }
+}
+
+export async function approveReopenRequestHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const result = await approveReopenRequest(paramAsString(req.params.id), req.user);
+    sendSuccess(res, result, 'Reopen request approved successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectReopenRequestHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const { reason } = req.body as { reason: string };
+    const result = await rejectReopenRequest(paramAsString(req.params.id), reason, req.user);
+    sendSuccess(res, result, 'Reopen request rejected');
+  } catch (err) {
+    next(err);
   }
 }
 

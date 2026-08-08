@@ -13,6 +13,7 @@ import * as ctrl from './vendors.controller';
 
 const router = Router();
 
+router.get('/vendor-technicians/me', authMiddleware, requirePermission('vendors', 'view'), ctrl.getOwnVendorTechnicianHandler);
 router.get('/vendors', authMiddleware, requirePermission('vendors', 'view'), validate(listVendorsQuerySchema, 'query'), ctrl.listVendorsHandler);
 router.get('/vendors/:id', authMiddleware, requirePermission('vendors', 'view'), ctrl.getVendorHandler);
 router.post('/vendors', authMiddleware, requirePermission('vendors', 'create'), validate(createVendorSchema), ctrl.createVendorHandler);

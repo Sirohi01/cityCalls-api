@@ -22,6 +22,8 @@ export const FILE_CATEGORIES = [
   // PRODUCT_IMAGE, which is a customer-owned product photo in the service-
   // request lifecycle, not a catalog listing photo.
   'CATALOG_IMAGE',
+  // Publicly accessible image/video header used by WhatsApp/email campaigns.
+  'MARKETING_MEDIA',
 ] as const;
 export type FileCategory = (typeof FILE_CATEGORIES)[number];
 

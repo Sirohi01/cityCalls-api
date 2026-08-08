@@ -12,6 +12,21 @@ import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { DataScope } from '../users/users.types';
 import { isCustomerRole, resolveOwnCustomerId } from '../../lib/ownCustomerScope';
+import { updateStatus as updateServiceRequestStatus } from '../service-requests/serviceRequests.service';
+import { ServiceRequestStatus } from '../service-requests/serviceRequests.model';
+async function syncServiceRequestStatus(
+  serviceRequestId: unknown,
+  toStatus: ServiceRequestStatus,
+  actor: AccessTokenPayload,
+  reason: string
+): Promise<void> {
+  if (!serviceRequestId) return;
+  try {
+    await updateServiceRequestStatus(serviceRequestId.toString(), toStatus, actor, { reason });
+  } catch {
+    // See comment above — swallow and move on.
+  }
+}
 
 interface LineItemInput {
   description: string;
@@ -30,9 +45,6 @@ interface CreateEstimateInput {
   discount?: number;
   validUntil?: Date;
 }
-
-// Resolves the two state names GST calculation needs: the branch's own
-// registered state and the customer's billing/service address state.
 async function resolveGstStates(branchId: string, customerId: string): Promise<{ branchState: string; customerState: string }> {
   const [branch, customer] = await Promise.all([BranchModel.findById(branchId), CustomerModel.findById(customerId)]);
   const branchState = branch?.registeredAddress?.state ?? '';
@@ -72,6 +84,8 @@ export async function createEstimate(input: CreateEstimateInput, actor: AccessTo
     newValue: { number, total: totals.total },
   });
 
+  await syncServiceRequestStatus(input.serviceRequestId, 'ESTIMATE_PENDING', actor, `Estimate ${number} created`);
+
   return estimate;
 }
 
@@ -84,12 +98,6 @@ export async function listEstimates(
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
   if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
-  // BRANCH enforced for staff; OWN enforced for CUSTOMER/BUSINESS_CUSTOMER
-  // (see lib/ownCustomerScope.ts) — previously only BRANCH was enforced here,
-  // meaning any customer-role caller could list every estimate in the system
-  // by simply not passing customerId, or view another customer's by passing
-  // an arbitrary one. Employee/Technician OWN scope (drafting their own
-  // estimates) still has no createdBy field on this model to filter by.
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
   if (scope === 'OWN' && isCustomerRole(user.role)) {
     const ownId = await resolveOwnCustomerId(user.sub);
@@ -138,6 +146,13 @@ export async function shareEstimate(id: string, channels: string[], actor: Acces
     variables: { estimateId: id, number: estimate.number, total: estimate.total },
   });
 
+  // Two SR-status hops for one Estimate action: ESTIMATE_PENDING -> ESTIMATE_SHARED
+  // -> AWAITING_CUSTOMER_APPROVAL (scripts/seed.ts SERVICE_REQUEST_TRANSITIONS)
+  // are effectively simultaneous from the estimate's perspective — the moment
+  // it's shared, the customer is also the one who needs to act next.
+  await syncServiceRequestStatus(estimate.serviceRequestId, 'ESTIMATE_SHARED', actor, `Estimate ${estimate.number} shared`);
+  await syncServiceRequestStatus(estimate.serviceRequestId, 'AWAITING_CUSTOMER_APPROVAL', actor, `Estimate ${estimate.number} shared`);
+
   return estimate;
 }
 
@@ -163,6 +178,13 @@ export async function respondToEstimate(id: string, approve: boolean, actor: Acc
     action: approve ? 'APPROVED' : 'REJECTED',
     module: 'finance',
   });
+
+  await syncServiceRequestStatus(
+    estimate.serviceRequestId,
+    approve ? 'ESTIMATE_APPROVED' : 'ESTIMATE_REJECTED',
+    actor,
+    `Estimate ${estimate.number} ${approve ? 'approved' : 'rejected'}`
+  );
 
   return estimate;
 }

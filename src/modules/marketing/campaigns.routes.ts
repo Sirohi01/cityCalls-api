@@ -13,5 +13,6 @@ router.post('/campaigns', authMiddleware, requirePermission('marketing', 'create
 router.patch('/campaigns/:id', authMiddleware, requirePermission('marketing', 'edit'), validate(updateCampaignSchema), ctrl.updateCampaignHandler);
 router.delete('/campaigns/:id', authMiddleware, requirePermission('marketing', 'edit'), ctrl.deleteCampaignHandler);
 router.post('/campaigns/:id/send', authMiddleware, requirePermission('marketing', 'edit'), ctrl.sendCampaignHandler);
+router.get('/campaigns/:id/audience-preview', authMiddleware, requirePermission('marketing', 'view'), ctrl.previewCampaignAudienceHandler);
 
 export default router;

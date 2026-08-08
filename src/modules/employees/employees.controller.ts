@@ -87,6 +87,22 @@ export async function updateEmployeeHandler(req: ScopedRequest, res: Response, n
   }
 }
 
+// Admin/branch-manager equivalent of updateOwnAvailabilityHandler — same
+// narrow {availability} payload, but scope-checked (BRANCH/ALL) instead of
+// tied to the caller's own userId, so a manager can mark someone on leave.
+export async function updateEmployeeAvailabilityHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user || !req.scope) throw new UnauthorizedError();
+    const id = paramAsString(req.params.id);
+    await employeeService.assertEmployeeAccessInScope(await employeeService.getEmployee(id), req.scope, req.user);
+    const { availability } = req.body as { availability: { day: number; available: boolean }[] };
+    const employee = await employeeService.updateEmployee(id, { availability });
+    sendSuccess(res, employee, 'Availability updated successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteEmployeeHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user || !req.scope) throw new UnauthorizedError();

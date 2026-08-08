@@ -136,6 +136,8 @@ const PERMISSIONS: PermissionRow[] = [
   ...allFor('VENDOR_TECHNICIAN', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('VENDOR_TECHNICIAN', ['files'], ['create'], 'OWN'),
   ...allFor('VENDOR_TECHNICIAN', ['happyCalls'], ['view', 'edit'], 'OWN'),
+  ...allFor('VENDOR_TECHNICIAN', ['vendors'], ['view'], 'OWN'), // GET /vendor-technicians/me for vendor-mobile — no Employee record exists for this role
+  ...allFor('VENDOR_TECHNICIAN', ['finance'], ['view', 'create', 'edit'], 'OWN'), // drafts estimates, records collections — same as EMPLOYEE/TECHNICIAN, docs/manish/09 §6 "same binary"
   ...allFor('OUTSOURCED_PARTNER', ['serviceRequests', 'fieldExecution', 'files'], ['view', 'edit'], 'OWN'),
   ...allFor('OUTSOURCED_PARTNER', ['files'], ['create'], 'OWN'),
 
@@ -267,8 +269,11 @@ const SERVICE_REQUEST_TRANSITIONS: TransitionRow[] = [
   { entityType: 'SERVICE_REQUEST', fromStatus: 'INSPECTION_COMPLETED', toStatus: 'WORK_STARTED', allowedRoles: FIELD_ROLES },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_PENDING', toStatus: 'ESTIMATE_SHARED', allowedRoles: [...FIELD_ROLES, 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE'] },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_SHARED', toStatus: 'AWAITING_CUSTOMER_APPROVAL', allowedRoles: [...FIELD_ROLES, 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE'] },
-  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_APPROVED', allowedRoles: CUSTOMER_ROLES },
-  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_REJECTED', allowedRoles: CUSTOMER_ROLES },
+  // ADMIN/SUPER_ADMIN override mirrors the ESTIMATE-entity override above —
+  // keeps this SR-status marker in sync when an admin approves/rejects on
+  // the customer's behalf (see estimates.service.ts's syncServiceRequestStatus).
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_APPROVED', allowedRoles: [...CUSTOMER_ROLES, 'ADMIN', 'SUPER_ADMIN'] },
+  { entityType: 'SERVICE_REQUEST', fromStatus: 'AWAITING_CUSTOMER_APPROVAL', toStatus: 'ESTIMATE_REJECTED', allowedRoles: [...CUSTOMER_ROLES, 'ADMIN', 'SUPER_ADMIN'] },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_APPROVED', toStatus: 'WORK_STARTED', allowedRoles: FIELD_ROLES },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_REJECTED', toStatus: 'CLOSED', allowedRoles: ESCALATION_CLOSE_ROLES },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'ESTIMATE_REJECTED', toStatus: 'CANCELLED', allowedRoles: ESCALATION_CLOSE_ROLES },
@@ -289,10 +294,6 @@ const SERVICE_REQUEST_TRANSITIONS: TransitionRow[] = [
   { entityType: 'SERVICE_REQUEST', fromStatus: 'CLOSED', toStatus: 'REOPENED', allowedRoles: REOPEN_ROLES },
   { entityType: 'SERVICE_REQUEST', fromStatus: 'PAID', toStatus: 'REOPENED', allowedRoles: REOPEN_ROLES },
 ];
-
-// "Any ASSIGNED_TO_* / NEW state -> ASSIGNED_TO_VENDOR / OUTSOURCED (bypass)" —
-// generated rather than hand-written per docs/06-complete-workflow-document.md
-// Stage 2's "OR request assigned directly to Vendor/Outsource" branch.
 const BYPASS_SOURCE_STATUSES = ['NEW', 'NEEDS_MANUAL_BRANCH_ASSIGNMENT', 'ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM', 'ASSIGNED_TO_EMPLOYEE'];
 for (const from of BYPASS_SOURCE_STATUSES) {
   SERVICE_REQUEST_TRANSITIONS.push(
@@ -301,7 +302,6 @@ for (const from of BYPASS_SOURCE_STATUSES) {
   );
 }
 
-// "Any pre-PAID status -> CANCELLED" — docs/07-status-transition-matrix.md §2.
 const PRE_PAID_STATUSES = [
   'NEW', 'NEEDS_MANUAL_BRANCH_ASSIGNMENT', 'ASSIGNED_TO_BRANCH', 'ASSIGNED_TO_SUB_BRANCH', 'ASSIGNED_TO_TEAM',
   'ASSIGNED_TO_EMPLOYEE', 'ASSIGNED_TO_VENDOR', 'OUTSOURCED', 'REASSIGNMENT_REQUIRED', 'ACCEPTED',
@@ -313,18 +313,13 @@ const PRE_PAID_STATUSES = [
 for (const from of PRE_PAID_STATUSES) {
   SERVICE_REQUEST_TRANSITIONS.push({ entityType: 'SERVICE_REQUEST', fromStatus: from, toStatus: 'CANCELLED', allowedRoles: CANCEL_ROLES });
 }
-
-// Estimate / Proforma Invoice / Invoice status transitions per
-// docs/07-status-transition-matrix.md §5. DRAFT is the creation-time status
-// (not seeded as a transition, matching how NEW/DRAFT states are handled
-// elsewhere — creation bypasses the engine, only explicit changes go through it).
 const FINANCE_DOC_ROLES: Role[] = ['EMPLOYEE', 'TECHNICIAN', 'VENDOR_TECHNICIAN', 'BRANCH_MANAGER', 'FINANCE_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
 const INVOICE_CANCEL_ROLES: Role[] = ['FINANCE_EXECUTIVE', 'ACCOUNTANT', 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
 
 const FINANCE_TRANSITIONS: TransitionRow[] = [
   { entityType: 'ESTIMATE', fromStatus: 'DRAFT', toStatus: 'SHARED', allowedRoles: FINANCE_DOC_ROLES },
-  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'APPROVED', allowedRoles: CUSTOMER_ROLES },
-  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'REJECTED', allowedRoles: CUSTOMER_ROLES },
+  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'APPROVED', allowedRoles: [...CUSTOMER_ROLES, 'ADMIN', 'SUPER_ADMIN'] },
+  { entityType: 'ESTIMATE', fromStatus: 'SHARED', toStatus: 'REJECTED', allowedRoles: [...CUSTOMER_ROLES, 'ADMIN', 'SUPER_ADMIN'] },
   { entityType: 'ESTIMATE', fromStatus: 'APPROVED', toStatus: 'CONVERTED', allowedRoles: FINANCE_DOC_ROLES },
 
   { entityType: 'PROFORMA_INVOICE', fromStatus: 'DRAFT', toStatus: 'SHARED', allowedRoles: FINANCE_DOC_ROLES },
@@ -334,15 +329,6 @@ const FINANCE_TRANSITIONS: TransitionRow[] = [
   { entityType: 'INVOICE', fromStatus: 'DRAFT', toStatus: 'CANCELLED', allowedRoles: INVOICE_CANCEL_ROLES },
   { entityType: 'INVOICE', fromStatus: 'ISSUED', toStatus: 'CANCELLED', allowedRoles: INVOICE_CANCEL_ROLES },
 ];
-
-// Notification template seed — docs/13-notification-and-template-system.md §2's
-// trigger catalog, covering the triggerKeys actually fired in code today (see
-// lib/notifications.ts callers). Not every one of docs' ~20 documented triggers
-// has a seeded template yet (e.g. the dynamic `SERVICE_REQUEST_${toStatus}` key
-// covers 37 possible statuses — only the highest-value few are seeded here);
-// trigger() itself no-ops safely when no template is registered, so this list
-// grows incrementally as each trigger's actual wording is decided by the
-// business, not as a blocking prerequisite for the engine to function.
 interface TemplateRow {
   triggerKey: string;
   channel: NotificationChannel;
@@ -398,8 +384,7 @@ const NOTIFICATION_TEMPLATES: TemplateRow[] = [
   { triggerKey: 'PASSWORD_RESET', channel: 'EMAIL', subjectTemplate: 'Reset Your CityCalls Password', bodyTemplate: '<p>Click the link below to reset your password:</p><p><a href="{{resetUrl}}">{{resetUrl}}</a></p>', variables: ['token', 'userId', 'resetUrl'] },
 
   { triggerKey: 'OTP_LOGIN', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls OTP is {{otp}}. Valid for 5 minutes.', variables: ['otp'] },
-
-  { triggerKey: 'SERVICE_COMPLETION_OTP', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls service completion OTP is {{otp}}. Share this with your technician to confirm completion.', variables: ['otp', 'serviceRequestId'] },
+  { triggerKey: 'SERVICE_COMPLETION_OTP', channel: 'WHATSAPP', bodyTemplate: 'Your CityCalls service completion OTP is {{otp}}. Share this with your technician to confirm completion.', variables: ['otp'] },
 
   { triggerKey: 'COMPLAINT_RESPONDED', channel: 'IN_APP', bodyTemplate: 'You have a response to your complaint "{{subject}}".', variables: ['subject', 'status'] },
   { triggerKey: 'COMPLAINT_RESPONDED', channel: 'PUSH', bodyTemplate: 'You have a response to your complaint "{{subject}}".', variables: ['subject', 'status'] },

@@ -16,6 +16,7 @@ router.patch('/employees/me/availability', authMiddleware, requirePermission('em
 router.get('/employees/:id', authMiddleware, requirePermission('employees', 'view'), ctrl.getEmployeeHandler);
 router.post('/employees', authMiddleware, requirePermission('employees', 'create'), validate(createEmployeeSchema), ctrl.createEmployeeHandler);
 router.patch('/employees/:id', authMiddleware, requirePermission('employees', 'edit'), validate(updateEmployeeSchema), ctrl.updateEmployeeHandler);
+router.patch('/employees/:id/availability', authMiddleware, requirePermission('employees', 'edit'), validate(updateAvailabilitySchema), ctrl.updateEmployeeAvailabilityHandler);
 router.delete('/employees/:id', authMiddleware, requirePermission('employees', 'edit'), ctrl.deleteEmployeeHandler);
 
 export default router;
