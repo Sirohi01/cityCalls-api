@@ -231,7 +231,11 @@ const CLOSE_ROLES: Role[] = ['HAPPY_CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
 const FOLLOWUP_ROLES: Role[] = ['CUSTOMER_SUPPORT_EXECUTIVE', 'HAPPY_CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
 const ESCALATION_CLOSE_ROLES: Role[] = ['BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
 const CANCEL_ROLES: Role[] = [...CUSTOMER_ROLES, 'BRANCH_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
-const REOPEN_ROLES: Role[] = [...CUSTOMER_ROLES, 'CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
+// CUSTOMER_SUPPORT_EXECUTIVE/HAPPY_CALL_EXECUTIVE approve customer-initiated
+// reopen requests (serviceRequests.service.ts's approveReopenRequest) — that
+// approval is what actually invokes this CLOSED/PAID -> REOPENED transition,
+// so they need to be allowed roles too, not just the staff who reopen directly.
+const REOPEN_ROLES: Role[] = [...CUSTOMER_ROLES, 'CALL_EXECUTIVE', 'CUSTOMER_SUPPORT_EXECUTIVE', 'HAPPY_CALL_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'];
 
 const SERVICE_REQUEST_TRANSITIONS: TransitionRow[] = [
   { entityType: 'SERVICE_REQUEST', fromStatus: 'NEW', toStatus: 'ASSIGNED_TO_BRANCH', allowedRoles: ADMIN_BYPASS },
