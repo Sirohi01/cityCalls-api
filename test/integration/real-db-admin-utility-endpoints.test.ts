@@ -98,18 +98,22 @@ describe('Admin utility endpoints — brands, roles, reopen-requests, audit logs
     });
     await ReopenRecordModel.create({
       originalServiceRequestId: original._id,
+      requestedServiceRequestId: original._id,
       newServiceRequestId: newSr._id,
       reason: 'AC not cooling again',
       reopenedBy: actor.sub,
       withinPolicyWindow: true,
       reopenCount: 1,
+      status: 'APPROVED',
+      reviewedBy: actor.sub,
+      reviewedAt: new Date(),
     });
 
     const { items } = await listAllReopenRequests({ page: 1, limit: 20 });
     const found = items.find((r) => r.requestNumber === 'SR-REOPEN-TEST-0001');
     expect(found?.customerName).toBe('Reopen Test Customer');
     expect(found?.reason).toBe('AC not cooling again');
-    expect(found?.status).toBe('COMPLETED');
+    expect(found?.status).toBe('APPROVED');
   });
 
   it('listAuditLogs resolves the real user name via userId and does not crash on real data (the exact bug that shipped)', async () => {
