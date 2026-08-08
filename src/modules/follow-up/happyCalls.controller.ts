@@ -16,7 +16,7 @@ export async function listHappyCallsHandler(req: ScopedRequest, res: Response, n
 
 export async function listReopenRequestsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
-    const { items, meta } = await happyCallsService.listAllReopenRequests(req.query as never);
+    const { items, meta } = await happyCallsService.listAllReopenRequests(req.query as unknown as { page: number; limit: number; status?: string });
     sendSuccess(res, items, 'Reopen requests retrieved', meta);
   } catch (error) {
     next(error);

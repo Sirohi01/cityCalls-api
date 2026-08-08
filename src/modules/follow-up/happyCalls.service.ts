@@ -15,42 +15,55 @@ interface ReopenRequestListItem {
   requestNumber?: string;
   customerName: string;
   reason: string;
-  status: 'COMPLETED'; // a reopen is applied immediately (serviceRequests.service.ts's reopenServiceRequest) —
-  // there is no pending-approval state in this system's workflow, unlike the fields' original mock data implied.
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   reopenedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  newServiceRequestId?: string;
 }
 
-// Cross-cutting admin view over every reopen, across all service requests —
-// distinct from GET /service-requests/{id}/reopen-history, which is scoped
-// to one request's own chain.
-export async function listAllReopenRequests(params: { page: number; limit: number }): Promise<{
+// Cross-cutting admin/CS/Happy-Call view over every reopen, across all
+// service requests — distinct from GET /service-requests/{id}/reopen-history,
+// which is scoped to one request's own chain. Filterable by status so
+// reviewers can pull up just the PENDING queue.
+export async function listAllReopenRequests(params: { page: number; limit: number; status?: string }): Promise<{
   items: ReopenRequestListItem[];
   meta: ReturnType<typeof buildPaginationMeta>;
 }> {
+  const filter: Record<string, unknown> = {};
+  if (params.status) filter.status = params.status;
+
   const skip = (params.page - 1) * params.limit;
   const [records, total] = await Promise.all([
-    ReopenRecordModel.find()
+    ReopenRecordModel.find(filter)
       .sort({ reopenedAt: -1 })
       .skip(skip)
       .limit(params.limit)
       .populate({
-        path: 'originalServiceRequestId',
+        path: 'requestedServiceRequestId',
         select: 'number customerId',
         populate: { path: 'customerId', select: 'name' },
-      }),
-    ReopenRecordModel.countDocuments(),
+      })
+      .populate('reviewedBy', 'name'),
+    ReopenRecordModel.countDocuments(filter),
   ]);
 
   const items: ReopenRequestListItem[] = records.map((r) => {
-    const sr = r.originalServiceRequestId as unknown as { _id: { toString(): string }; number?: string; customerId?: { name?: string } };
+    const sr = r.requestedServiceRequestId as unknown as { _id: { toString(): string }; number?: string; customerId?: { name?: string } };
+    const reviewer = r.reviewedBy as unknown as { name?: string } | undefined;
     return {
       id: r._id.toString(),
-      originalServiceRequestId: sr?._id?.toString() ?? r.originalServiceRequestId.toString(),
+      originalServiceRequestId: sr?._id?.toString() ?? r.requestedServiceRequestId.toString(),
       requestNumber: sr?.number,
       customerName: sr?.customerId?.name ?? 'Unknown',
       reason: r.reason,
-      status: 'COMPLETED',
+      status: r.status,
       reopenedAt: r.reopenedAt.toISOString(),
+      reviewedBy: reviewer?.name,
+      reviewedAt: r.reviewedAt?.toISOString(),
+      rejectionReason: r.rejectionReason,
+      newServiceRequestId: r.newServiceRequestId?.toString(),
     };
   });
 

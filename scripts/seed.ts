@@ -375,6 +375,18 @@ const NOTIFICATION_TEMPLATES: TemplateRow[] = [
 
   { triggerKey: 'COMPLAINT_REOPENED', channel: 'IN_APP', bodyTemplate: 'A service request you handled has been reopened by the customer.', variables: ['originalServiceRequestId', 'newServiceRequestId'] },
 
+  // Reopen approval workflow (serviceRequests.service.ts's requestReopen /
+  // approveReopenRequest / rejectReopenRequest) — REOPEN_REQUESTED notifies
+  // CS/Happy-Call staff a review is waiting; REOPEN_APPROVED/REOPEN_REJECTED
+  // tell the customer the outcome. No approved WhatsApp template exists for
+  // any of these yet (unlike OTP_LOGIN/festival), so IN_APP/PUSH only —
+  // WHATSAPP can be added later the same way ESTIMATE_SHARED was.
+  { triggerKey: 'REOPEN_REQUESTED', channel: 'IN_APP', bodyTemplate: 'A customer has requested to reopen service request {{serviceRequestId}}. Reason: {{reason}}', variables: ['serviceRequestId', 'reason'] },
+  { triggerKey: 'REOPEN_APPROVED', channel: 'IN_APP', bodyTemplate: 'Your reopen request has been approved. A new visit has been scheduled.', variables: ['serviceRequestId', 'newServiceRequestId'] },
+  { triggerKey: 'REOPEN_APPROVED', channel: 'PUSH', bodyTemplate: 'Your reopen request has been approved. A new visit has been scheduled.', variables: [] },
+  { triggerKey: 'REOPEN_REJECTED', channel: 'IN_APP', bodyTemplate: 'Your reopen request was not approved. Reason: {{reason}}', variables: ['serviceRequestId', 'reason'] },
+  { triggerKey: 'REOPEN_REJECTED', channel: 'PUSH', bodyTemplate: 'Your reopen request was not approved. Reason: {{reason}}', variables: ['reason'] },
+
   { triggerKey: 'HAPPY_CALL_DUE', channel: 'IN_APP', bodyTemplate: 'A happy call is due for service request {{serviceRequestId}}.', variables: ['serviceRequestId'] },
 
   { triggerKey: 'HAPPY_CALL_ESCALATION', channel: 'IN_APP', bodyTemplate: 'Customer dissatisfaction flagged on happy call for {{serviceRequestId}}.', variables: ['serviceRequestId', 'remarks'] },
