@@ -23,8 +23,11 @@ async function syncServiceRequestStatus(
   if (!serviceRequestId) return;
   try {
     await updateServiceRequestStatus(serviceRequestId.toString(), toStatus, actor, { reason });
-  } catch {
-    // See comment above — swallow and move on.
+  } catch (err) {
+    console.error(
+      `[estimates] failed to sync ServiceRequest ${serviceRequestId.toString()} to status ${toStatus} (reason: ${reason})`,
+      err
+    );
   }
 }
 
@@ -145,11 +148,6 @@ export async function shareEstimate(id: string, channels: string[], actor: Acces
     recipient: { customerId: estimate.customerId.toString() },
     variables: { estimateId: id, number: estimate.number, total: estimate.total },
   });
-
-  // Two SR-status hops for one Estimate action: ESTIMATE_PENDING -> ESTIMATE_SHARED
-  // -> AWAITING_CUSTOMER_APPROVAL (scripts/seed.ts SERVICE_REQUEST_TRANSITIONS)
-  // are effectively simultaneous from the estimate's perspective — the moment
-  // it's shared, the customer is also the one who needs to act next.
   await syncServiceRequestStatus(estimate.serviceRequestId, 'ESTIMATE_SHARED', actor, `Estimate ${estimate.number} shared`);
   await syncServiceRequestStatus(estimate.serviceRequestId, 'AWAITING_CUSTOMER_APPROVAL', actor, `Estimate ${estimate.number} shared`);
 
