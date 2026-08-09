@@ -336,11 +336,30 @@ interface StatusChangeMeta {
   reason?: string;
   geo?: { lat: number; lng: number };
 }
+function assertNotBeforeScheduledDate(sr: Pick<IServiceRequest, 'scheduledDate' | 'number'>, toStatus: ServiceRequestStatus, actorRole: string): void {
+  if (toStatus !== 'TECHNICIAN_EN_ROUTE') return;
+  if (!sr.scheduledDate) return;
+  if (TERMINAL_ROLES_WITH_BYPASS.includes(actorRole)) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const scheduledDay = new Date(sr.scheduledDate);
+  scheduledDay.setHours(0, 0, 0, 0);
+
+  if (scheduledDay.getTime() > today.getTime()) {
+    throw new ConflictError(
+      `${sr.number} is scheduled for ${scheduledDay.toLocaleDateString('en-IN')}, not today. You can start travel on the scheduled day.`,
+      'JOB_NOT_YET_DUE'
+    );
+  }
+}
+
 export async function updateStatus(id: string, toStatus: ServiceRequestStatus, actor: AccessTokenPayload, meta: StatusChangeMeta = {}) {
   const sr = await ServiceRequestModel.findById(id);
   if (!sr) throw new NotFoundError('Service request not found');
 
   assertValidTransition('SERVICE_REQUEST', sr.status, toStatus, actor.role);
+  assertNotBeforeScheduledDate(sr, toStatus, actor.role);
 
   const fromStatus = sr.status;
   sr.status = toStatus;
