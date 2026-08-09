@@ -110,6 +110,16 @@ export async function shareProformaInvoiceHandler(req: ScopedRequest, res: Respo
   }
 }
 
+export async function generateProformaFromServiceRequestHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new UnauthorizedError();
+    const proforma = await proformaService.generateProformaFromServiceRequest(paramAsString(req.params.id), req.user);
+    sendSuccess(res, proforma, 'Proforma invoice generated and shared successfully', null, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function acceptProformaInvoiceHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new UnauthorizedError();

@@ -1,4 +1,5 @@
 import { ProformaInvoiceModel } from './proformaInvoices.model';
+import { EstimateModel } from './estimates.model';
 import * as estimatesService from './estimates.service';
 import { NotFoundError, ConflictError } from '../../lib/errors';
 import { buildPaginationMeta } from '../../lib/apiResponse';
@@ -10,10 +11,6 @@ import { logActivity } from '../../lib/auditLog';
 import { AccessTokenPayload } from '../../lib/jwt';
 import { DataScope } from '../users/users.types';
 
-// Conversion: Lead -> Estimate -> Proforma Invoice -> Service Request -> Invoice
-// -> Payment Receipt (docs/16-pdf-and-financial-documents.md). Converting carries
-// items/totals forward exactly as approved — it never re-derives them, since the
-// approved Estimate is the customer's actual agreement.
 export async function convertEstimateToProforma(estimateId: string, actor: AccessTokenPayload) {
   const estimate = await estimatesService.assertConvertible(estimateId);
 
@@ -49,13 +46,14 @@ export async function convertEstimateToProforma(estimateId: string, actor: Acces
 }
 
 export async function listProformaInvoices(
-  params: { page: number; limit: number; status?: string; customerId?: string },
+  params: { page: number; limit: number; status?: string; customerId?: string; serviceRequestId?: string },
   scope: DataScope,
   user: AccessTokenPayload
 ) {
   const filter: Record<string, unknown> = {};
   if (params.status) filter.status = params.status;
   if (params.customerId) filter.customerId = params.customerId;
+  if (params.serviceRequestId) filter.serviceRequestId = params.serviceRequestId;
   if (scope === 'BRANCH' && user.branchId) filter.branchId = user.branchId;
 
   const skip = (params.page - 1) * params.limit;
@@ -88,6 +86,18 @@ export async function shareProformaInvoice(id: string, channels: string[], actor
   });
 
   return proforma;
+}
+export async function generateProformaFromServiceRequest(serviceRequestId: string, actor: AccessTokenPayload) {
+  const existing = await ProformaInvoiceModel.findOne({ serviceRequestId, status: { $ne: 'CONVERTED' } }).sort({ createdAt: -1 });
+  if (existing) return existing;
+
+  const estimate = await EstimateModel.findOne({ serviceRequestId, status: 'APPROVED' }).sort({ approvedAt: -1 });
+  if (!estimate) {
+    throw new NotFoundError('No approved estimate found for this service request');
+  }
+
+  const proforma = await convertEstimateToProforma(estimate._id.toString(), actor);
+  return shareProformaInvoice(proforma._id.toString(), ['IN_APP'], actor);
 }
 
 export async function acceptProformaInvoice(id: string, actor: AccessTokenPayload) {

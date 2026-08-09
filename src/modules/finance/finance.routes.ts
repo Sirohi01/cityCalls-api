@@ -26,6 +26,12 @@ router.post('/estimates/:id/convert', authMiddleware, requirePermission('finance
 
 // Proforma Invoices
 router.get('/proforma-invoices', authMiddleware, requirePermission('finance', 'view'), validate(listFinanceQuerySchema, 'query'), ctrl.listProformaInvoicesHandler);
+router.post(
+  '/service-requests/:id/generate-proforma-invoice',
+  authMiddleware,
+  requirePermission('finance', 'create'),
+  ctrl.generateProformaFromServiceRequestHandler
+);
 router.get('/proforma-invoices/:id', authMiddleware, requirePermission('finance', 'view'), ctrl.getProformaInvoiceHandler);
 router.post('/proforma-invoices/:id/share', authMiddleware, requirePermission('finance', 'edit'), validate(shareDocumentSchema), ctrl.shareProformaInvoiceHandler);
 router.patch('/proforma-invoices/:id/accept', authMiddleware, requirePermission('finance', 'edit'), ctrl.acceptProformaInvoiceHandler);
