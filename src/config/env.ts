@@ -36,11 +36,12 @@ export const env = {
   aisensy: {
     enabled: process.env.AISENSY_ENABLED === 'true',
     apiKey: process.env.AISENSY_API_KEY,
-    senderName: process.env.AISENSY_SENDER_NAME ?? 'CityCalls',
-    source: process.env.AISENSY_SOURCE ?? 'citycalls',
-    loginOtpCampaign: process.env.AISENSY_LOGIN_OTP_CAMPAIGN ?? 'citycalls_login_otp_api',
-    completionOtpCampaign: process.env.AISENSY_COMPLETION_OTP_CAMPAIGN ?? 'citycalls_service_completion_otp_api',
-    festivalCampaign: process.env.AISENSY_FESTIVAL_CAMPAIGN ?? 'citycalls_festival_greeting_api',
+    senderName: process.env.AISENSY_SENDER_NAME,
+    source: process.env.AISENSY_SOURCE,
+    loginOtpCampaign: process.env.AISENSY_LOGIN_OTP_CAMPAIGN,
+    completionOtpCampaign: process.env.AISENSY_COMPLETION_OTP_CAMPAIGN,
+    festivalCampaign: process.env.AISENSY_FESTIVAL_CAMPAIGN,
+    independenceDayCampaign: process.env.AISENSY_INDEPENDENCE_DAY_CAMPAIGN,
   },
   ai: {
     enabled: process.env.AI_ENABLED === 'true',

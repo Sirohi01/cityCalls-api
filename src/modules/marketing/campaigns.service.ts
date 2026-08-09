@@ -9,12 +9,18 @@ import { AccessTokenPayload } from '../../lib/jwt';
 import { resolveCampaignAudience, summarizeAudience } from './campaignAudience.service';
 import { CampaignRecipientModel } from './campaignRecipients.model';
 import { env } from '../../config/env';
+const CAMPAIGN_PRESETS = {
+  FESTIVAL: () => env.aisensy.festivalCampaign,
+  INDEPENDENCE_DAY: () => env.aisensy.independenceDayCampaign,
+} as const;
+type CampaignPreset = keyof typeof CAMPAIGN_PRESETS;
 
 interface CreateCampaignInput {
   name: string;
   channel: 'WHATSAPP' | 'EMAIL';
   templateId?: string;
   providerCampaignName?: string;
+  campaignPreset?: CampaignPreset;
   templateParams?: string[];
   media?: { fileId?: string; url: string; filename: string };
   audienceFilter: {
@@ -38,15 +44,23 @@ export async function createCampaign(input: CreateCampaignInput, actor: AccessTo
   if (!template || template.channel !== input.channel) {
     throw new ConflictError('Template must exist and match the campaign channel', 'TEMPLATE_CHANNEL_MISMATCH');
   }
+
+  const presetCampaignName = input.campaignPreset ? CAMPAIGN_PRESETS[input.campaignPreset]() : undefined;
+  if (input.campaignPreset && !presetCampaignName) {
+    throw new ConflictError(`No AiSensy campaign configured for preset ${input.campaignPreset} — set it in .env`, 'CAMPAIGN_PRESET_NOT_CONFIGURED');
+  }
+
   return CampaignModel.create({
     ...input,
     templateId: template._id,
     providerCampaignName: input.channel === 'WHATSAPP'
-      ? (input.providerCampaignName || env.aisensy.festivalCampaign)
+      ? (presetCampaignName || input.providerCampaignName || env.aisensy.festivalCampaign)
       : input.providerCampaignName,
-    templateParams: input.channel === 'WHATSAPP' && !input.templateParams?.length
-      ? ['{{firstName}}', '{{firstName}}']
-      : (input.templateParams ?? []),
+    templateParams: input.campaignPreset === 'INDEPENDENCE_DAY'
+      ? []
+      : input.channel === 'WHATSAPP' && !input.templateParams?.length
+        ? ['{{firstName}}', '{{firstName}}']
+        : (input.templateParams ?? []),
     status: input.scheduledAt ? 'SCHEDULED' : 'DRAFT',
     createdBy: actor.sub,
   });

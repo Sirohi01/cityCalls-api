@@ -25,6 +25,10 @@ export const createCampaignSchema = z.object({
   channel: z.enum(['WHATSAPP', 'EMAIL']),
   templateId: z.string().optional(),
   providerCampaignName: z.string().trim().optional(),
+  // Lets the client pick a named, pre-approved AiSensy campaign (its real
+  // name lives only in .env) instead of needing to know/duplicate the
+  // literal campaign name string itself.
+  campaignPreset: z.enum(['FESTIVAL', 'INDEPENDENCE_DAY']).optional(),
   templateParams: z.array(z.string()).default([]),
   media: mediaSchema.optional(),
   audienceFilter: audienceFilterSchema.default({ recipientTypes: ['CUSTOMER'], tags: [], segments: [], roles: [], branchIds: [], vendorIds: [], excludeMobiles: [], manualMobiles: [] }),
