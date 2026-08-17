@@ -49,6 +49,22 @@ export async function getService(id: string) {
   if (!service) throw new NotFoundError('Service not found');
   return service;
 }
+export async function getServiceDiagnostics(id: string) {
+  const service = await ServiceModel.findById(id)
+    .populate('complaintTypeIds', 'key label')
+    .populate('symptomIds', 'key label')
+    .populate('defectIds', 'key label')
+    .populate('solutionTypeIds', 'key label meta')
+    .populate('applicableProductTypeIds', 'key label parentId');
+  if (!service) throw new NotFoundError('Service not found');
+  return {
+    complaintTypes: service.complaintTypeIds,
+    symptoms: service.symptomIds,
+    defects: service.defectIds,
+    solutionTypes: service.solutionTypeIds,
+    productTypes: service.applicableProductTypeIds,
+  };
+}
 
 export async function createService(data: Record<string, unknown>) {
   return ServiceModel.create(data);

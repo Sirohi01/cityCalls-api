@@ -31,6 +31,15 @@ export async function getServiceHandler(req: ScopedRequest, res: Response, next:
   }
 }
 
+export async function getServiceDiagnosticsHandler(req: ScopedRequest, res: Response, next: NextFunction) {
+  try {
+    const diagnostics = await catalogService.getServiceDiagnostics(paramAsString(req.params.id));
+    sendSuccess(res, diagnostics, 'Service diagnostics fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function createServiceHandler(req: ScopedRequest, res: Response, next: NextFunction) {
   try {
     const service = await catalogService.createService(req.body);
