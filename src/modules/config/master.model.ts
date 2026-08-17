@@ -7,6 +7,7 @@ export const MASTER_TYPES = [
   'SERVICE_CATEGORY',
   'BRAND',
   'PRODUCT_TYPE',
+  'COMPLAINT_TYPE',
   'SYMPTOM',
   'DEFECT',
   'SOLUTION',
