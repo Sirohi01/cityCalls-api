@@ -15,8 +15,8 @@ const router = Router();
 router.post('/files/signed-upload', authMiddleware, validate(signedUploadSchema), ctrl.signedUploadHandler);
 router.post('/files/confirm', authMiddleware, validate(confirmUploadSchema), ctrl.confirmUploadHandler);
 router.post('/files/upload', authMiddleware, upload.single('file'), validate(uploadFormSchema), ctrl.directUploadHandler);
-router.get('/files', authMiddleware, validate(listFilesQuerySchema, 'query'), ctrl.listFilesHandler);
-router.get('/files/:id', authMiddleware, ctrl.getFileHandler);
+router.get('/files', validate(listFilesQuerySchema, 'query'), ctrl.listFilesHandler);
+router.get('/files/:id', ctrl.getFileHandler);
 router.delete('/files/:id', authMiddleware, ctrl.deleteFileHandler);
 
 export default router;
