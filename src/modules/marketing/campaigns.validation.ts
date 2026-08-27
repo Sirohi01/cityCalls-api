@@ -20,6 +20,11 @@ const mediaSchema = z.object({
   filename: z.string().min(1),
 });
 
+const carouselCardSchema = z.object({
+  cardIndex: z.number().int().min(0),
+  imageUrl: z.string().url(),
+});
+
 export const createCampaignSchema = z.object({
   name: z.string().min(1),
   channel: z.enum(['WHATSAPP', 'EMAIL']),
@@ -31,6 +36,7 @@ export const createCampaignSchema = z.object({
   campaignPreset: z.enum(['FESTIVAL', 'INDEPENDENCE_DAY']).optional(),
   templateParams: z.array(z.string()).default([]),
   media: mediaSchema.optional(),
+  carouselCards: z.array(carouselCardSchema).max(10).optional(),
   audienceFilter: audienceFilterSchema.default({ recipientTypes: ['CUSTOMER'], tags: [], segments: [], roles: [], branchIds: [], vendorIds: [], excludeMobiles: [], manualMobiles: [] }),
   scheduledAt: z.coerce.date().optional(),
 });
@@ -42,6 +48,7 @@ export const updateCampaignSchema = z.object({
   providerCampaignName: z.string().trim().optional(),
   templateParams: z.array(z.string()).optional(),
   media: mediaSchema.optional(),
+  carouselCards: z.array(carouselCardSchema).max(10).optional(),
   audienceFilter: audienceFilterSchema.optional(),
   scheduledAt: z.coerce.date().optional(),
 });

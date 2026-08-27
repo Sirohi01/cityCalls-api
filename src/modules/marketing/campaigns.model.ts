@@ -11,6 +11,7 @@ export interface ICampaign extends Document {
   providerCampaignName?: string;
   templateParams: string[];
   media?: { fileId?: Types.ObjectId; url: string; filename: string };
+  carouselCards?: Array<{ cardIndex: number; imageUrl: string }>;
   audienceFilter: {
     recipientTypes: CampaignRecipientType[];
     tags?: string[];
@@ -42,6 +43,10 @@ const campaignSchema = new Schema<ICampaign>(
       url: { type: String },
       filename: { type: String },
     },
+    carouselCards: [{
+      cardIndex: { type: Number, required: true, min: 0 },
+      imageUrl: { type: String, required: true, trim: true },
+    }],
     audienceFilter: {
       recipientTypes: { type: [String], enum: CAMPAIGN_RECIPIENT_TYPES, default: ['CUSTOMER'] },
       tags: { type: [String], default: [] },

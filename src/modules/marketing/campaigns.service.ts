@@ -23,6 +23,7 @@ interface CreateCampaignInput {
   campaignPreset?: CampaignPreset;
   templateParams?: string[];
   media?: { fileId?: string; url: string; filename: string };
+  carouselCards?: Array<{ cardIndex: number; imageUrl: string }>;
   audienceFilter: {
     recipientTypes: Array<'CUSTOMER' | 'USER' | 'EMPLOYEE' | 'VENDOR' | 'VENDOR_TECHNICIAN' | 'MANUAL'>;
     tags?: string[];
@@ -167,6 +168,7 @@ export async function processQueuedCampaignRecipients(limit = 25): Promise<numbe
           userName: recipient.name,
           variables: params,
           media: campaign.media?.url && campaign.media?.filename ? { url: campaign.media.url, filename: campaign.media.filename } : undefined,
+          carouselCards: campaign.carouselCards,
           paramsFallbackValue: { FirstName: recipient.name.split(/\s+/)[0] || 'user' },
         });
         recipient.providerResponse = result.response;
@@ -253,6 +255,7 @@ export async function duplicateCampaign(id: string, actor: AccessTokenPayload) {
     providerCampaignName: source.providerCampaignName,
     templateParams: source.templateParams,
     media: source.media,
+    carouselCards: source.carouselCards,
     audienceFilter: source.audienceFilter,
     status: 'DRAFT',
     createdBy: actor.sub,

@@ -12,6 +12,7 @@ export interface SendWhatsAppInput {
   variables: string[];
   source?: string;
   media?: { url: string; filename: string };
+  carouselCards?: Array<{ cardIndex: number; imageUrl: string }>;
   buttons?: Array<{
     type: string;
     sub_type: string;
@@ -69,6 +70,15 @@ export async function sendWhatsApp(input: SendWhatsAppInput): Promise<AiSensySen
       templateParams: input.variables,
       source: input.source ?? env.aisensy.source,
       ...(input.media ? { media: input.media } : {}),
+      ...(input.carouselCards?.length ? {
+        carouselCards: input.carouselCards.map((card) => ({
+          card_index: card.cardIndex,
+          components: [
+            { type: 'HEADER', parameters: [{ type: 'image', image: { link: card.imageUrl } }] },
+            { type: 'BODY', parameters: [] },
+          ],
+        })),
+      } : {}),
       ...(input.buttons?.length ? { buttons: input.buttons } : {}),
       ...(input.tags?.length ? { tags: input.tags } : {}),
       ...(input.attributes && Object.keys(input.attributes).length ? { attributes: input.attributes } : {}),
