@@ -37,8 +37,10 @@ export async function markRead(id: string, userId: string) {
   return notification;
 }
 
-export async function getUnreadCount(userId: string) {
-  return NotificationModel.countDocuments({ recipientUserId: userId, readAt: { $exists: false } });
+export async function getUnreadCount(userId: string, channel?: string) {
+  const filter: Record<string, unknown> = { recipientUserId: userId, readAt: { $exists: false } };
+  if (channel) filter.channel = channel;
+  return NotificationModel.countDocuments(filter);
 }
 
 // Admin template management — docs/11-complete-api-contracts.md §2 "Notifications" row.

@@ -4,6 +4,7 @@ import { CustomerModel } from '../../src/modules/customers/customers.model';
 import { NotificationTemplateModel, NotificationModel } from '../../src/modules/notifications/notificationTemplates.model';
 import { CampaignModel } from '../../src/modules/marketing/campaigns.model';
 import { trigger } from '../../src/lib/notifications';
+import { getUnreadCount } from '../../src/modules/notifications/notifications.service';
 import { createCampaign, sendCampaignNow } from '../../src/modules/marketing/campaigns.service';
 import { AccessTokenPayload } from '../../src/lib/jwt';
 
@@ -17,6 +18,7 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
   jest.setTimeout(60_000);
   let actor: AccessTokenPayload;
   let customerId: string;
+  let customerUserId: string;
 
   beforeAll(async () => {
     await connectTestDb();
@@ -51,6 +53,7 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
       consent: { whatsapp: 'GRANTED', email: 'GRANTED', sms: 'NOT_ASKED' },
     });
     customerId = customer._id.toString();
+    customerUserId = customerUser._id.toString();
   });
 
   afterAll(async () => {
@@ -89,6 +92,32 @@ describe('Notification trigger + campaign flow (real in-memory MongoDB)', () => 
     const whatsapp = notifications.find((n) => n.channel === 'WHATSAPP');
     expect(whatsapp?.status).toBe('FAILED');
     expect(whatsapp?.failureReason).toMatch(/No AiSensy API campaign configured/);
+  });
+
+  it('unread-count scoped to IN_APP ignores unreadable PUSH/EMAIL/WHATSAPP docs from the same trigger', async () => {
+    await NotificationTemplateModel.create([
+      { triggerKey: 'TEST_UNREAD_COUNT', channel: 'IN_APP', bodyTemplate: 'Hello {{name}}', variables: ['name'] },
+      { triggerKey: 'TEST_UNREAD_COUNT', channel: 'EMAIL', subjectTemplate: 'Hi {{name}}', bodyTemplate: 'Hello {{name}}', variables: ['name'] },
+      { triggerKey: 'TEST_UNREAD_COUNT', channel: 'WHATSAPP', bodyTemplate: 'Hello {{name}}', variables: ['name'] },
+      { triggerKey: 'TEST_UNREAD_COUNT', channel: 'PUSH', bodyTemplate: 'Hello {{name}}', variables: ['name'] },
+    ]);
+
+    await trigger('TEST_UNREAD_COUNT', {
+      recipient: { customerId },
+      variables: { name: 'Notify Customer' },
+    });
+
+    // Every channel wrote its own Notification doc, none of them ever get a
+    // readAt through the app (only the IN_APP one is ever listed/markable),
+    // so an unscoped count would keep growing by 4 per trigger instead of 1.
+    const allChannelsCount = await getUnreadCount(customerUserId);
+    const inAppOnlyCount = await getUnreadCount(customerUserId, 'IN_APP');
+
+    expect(allChannelsCount).toBeGreaterThanOrEqual(inAppOnlyCount + 3);
+    expect(inAppOnlyCount).toBeGreaterThanOrEqual(1);
+
+    const inAppDoc = await NotificationModel.findOne({ triggerKey: 'TEST_UNREAD_COUNT', channel: 'IN_APP' });
+    expect(inAppDoc?.readAt).toBeUndefined();
   });
 
   it('does not throw and creates nothing when no template is registered for the trigger', async () => {

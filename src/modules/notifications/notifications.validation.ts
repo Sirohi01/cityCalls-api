@@ -8,3 +8,7 @@ export const listNotificationsQuerySchema = z.object({
   status: z.enum(NOTIFICATION_STATUSES).optional(),
   unreadOnly: z.coerce.boolean().optional(),
 });
+
+export const unreadCountQuerySchema = z.object({
+  channel: z.enum(NOTIFICATION_CHANNELS).optional(),
+});
